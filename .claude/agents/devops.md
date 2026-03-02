@@ -55,7 +55,31 @@ Services: PostgreSQL 18 (port 5432), Redis 8 (port 6379), Mailhog (SMTP 1025, UI
 ## Production Docker
 
 - Multi-stage build: deps → builder → runner
-- Base image: `node:20-alpine`
+- Base image: `node:24-alpine`
 - Copy only standalone output + static assets + public
 - Health check endpoint: `/api/health`
 - Set `NODE_ENV=production`, non-root user
+
+## Monitoring & Observability
+
+### Health Checks
+- `/api/health` endpoint: returns `{ status: "ok", db: "connected", redis: "connected" }`
+- Docker health check: `curl -f http://localhost:3000/api/health || exit 1`
+- Kubernetes readiness/liveness probes pointing to health endpoint
+
+### Logging
+- Use structured JSON logging in production (not console.log)
+- Log levels: error, warn, info, debug
+- Include request ID, user ID, and action name in all log entries
+- Never log sensitive data: passwords, card numbers, Stripe secrets
+
+### Error Tracking
+- Integrate Sentry or similar for error tracking
+- Source maps uploaded at build time for readable stack traces
+- Alerts: 5xx rate > 1%, payment failures, auth failures
+
+### Performance Monitoring
+- Track Core Web Vitals (LCP, INP, CLS) via Next.js built-in reporting
+- Monitor database query latency (Drizzle logger)
+- Track Stripe API response times
+- Alert on: P95 response time > 2s, DB connection pool exhaustion

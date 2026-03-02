@@ -225,6 +225,8 @@ After completing a feature, review for reuse opportunities and code quality.
 | Docker setup             | `/docker`           |
 | Stripe testing           | `/stripe-test`      |
 | Internationalization     | `/i18n`             |
+| Security audit           | `/audit-security`   |
+| Generate .env.local      | `/fix-env`          |
 
 ## Multi-Agent Collaboration
 

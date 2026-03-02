@@ -45,3 +45,13 @@ coverage/
 # Playwright
 test-results/
 playwright-report/
+
+# Storybook
+storybook-static/
+
+# Vitest alternate output
+vitest-coverage/
+
+# Docker volumes
+postgres-data/
+redis-data/

@@ -9,7 +9,7 @@
 - **Nx**: 22
 - **PostgreSQL**: 18
 - **Redis**: 8
-- **Node.js**: 20 (Alpine for Docker)
+- **Node.js**: 24 (Alpine for Docker)
 - **Drizzle ORM**: latest
 - **NextAuth.js**: v5 (beta)
 - **Stripe**: latest SDK
@@ -17,10 +17,11 @@
 ## .claude Setup Summary
 
 - **7 agents**: db-architect, frontend-dev, payments-agent, domain-logic, devops, qa-tester, researcher
-- **22 commands**: setup, new-feature, new-page, new-component, new-api, new-lib, db-table, db-seed, test, debug, review, deploy, affected, perf, migrate, env-check, a11y, deps, refactor, docker, stripe-test, i18n
+- **24 commands**: setup, new-feature, new-page, new-component, new-api, new-lib, db-table, db-seed, test, debug, review, deploy, affected, perf, migrate, env-check, a11y, deps, refactor, docker, stripe-test, i18n, audit-security, fix-env
+- **Hooks**: PreToolUse on Edit/Write (no .env, no any, no console.log, no boundary violations), PreToolUse on Bash (no npm/yarn, no force push, no docker rm), PostToolUse prompt-based boundary check
 - **Auto-approve**: Read, Edit, Write, Glob, Grep, WebFetch, WebSearch, TodoWrite + all pnpm/git/docker/gh commands
-- **Deny list**: rm -rf, git push --force, git reset --hard, DROP TABLE/DATABASE, npm, yarn, chmod 777
-- **`.claudeignore`**: excludes node_modules, .next, dist, .nx, pnpm-lock.yaml, migrations, coverage
+- **Deny list**: rm -rf, git push --force/-f, git reset --hard, DROP TABLE/DATABASE, npm, yarn, chmod 777, docker compose down -v, docker compose rm, rm .env*
+- **`.claudeignore`**: excludes node_modules, .next, dist, .nx, pnpm-lock.yaml, migrations, coverage, storybook-static, docker volumes
 
 ## i18n
 
