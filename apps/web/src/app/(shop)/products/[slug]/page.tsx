@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,38 +9,72 @@ import { RatingStars } from "@amazone/shared-ui";
 import { formatPrice } from "@amazone/shared-utils";
 import { AddToCartButton } from "./add-to-cart-button";
 
-// TODO: Fetch from DB when connected
-// import { getProductBySlug } from "@amazone/products";
-
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
 }
 
-// Placeholder product for development before DB is connected
-const placeholderProduct = {
-  id: "00000000-0000-0000-0000-000000000001",
-  name: "Premium Wireless Headphones",
-  slug: "premium-wireless-headphones",
-  description:
-    "Experience crystal-clear audio with our premium wireless headphones. Featuring active noise cancellation, 30-hour battery life, and ultra-comfortable memory foam ear cushions. Perfect for music lovers, commuters, and remote workers.",
-  price: 9999,
-  compareAtPrice: 14999,
-  images: ["/placeholder-product.jpg"],
-  stock: 42,
-  isActive: true,
-  isFeatured: true,
-  avgRating: 450,
-  reviewCount: 128,
-  categoryId: null,
-  sellerId: "00000000-0000-0000-0000-000000000000",
-  createdAt: new Date(),
-  updatedAt: new Date(),
+interface Product {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  price: number;
+  compareAtPrice: number | null;
+  images: (string | null)[] | null;
+  stock: number;
+  isActive: boolean;
+  isFeatured: boolean;
+  avgRating: number;
+  reviewCount: number;
+}
+
+// Placeholder products for development without DB
+const placeholderProducts: Record<string, Product> = {
+  "premium-wireless-headphones": {
+    id: "00000000-0000-0000-0000-000000000001",
+    name: "Premium Wireless Headphones",
+    slug: "premium-wireless-headphones",
+    description:
+      "Experience crystal-clear audio with our premium wireless headphones. Featuring active noise cancellation, 30-hour battery life, and ultra-comfortable memory foam ear cushions.",
+    price: 9999,
+    compareAtPrice: 14999,
+    images: ["/placeholder-product.jpg"],
+    stock: 42,
+    isActive: true,
+    isFeatured: true,
+    avgRating: 450,
+    reviewCount: 128,
+  },
+  "mechanical-gaming-keyboard": {
+    id: "00000000-0000-0000-0000-000000000005",
+    name: "Mechanical Gaming Keyboard",
+    slug: "mechanical-gaming-keyboard",
+    description:
+      "Dominate the game with our premium mechanical keyboard. Cherry MX switches, per-key RGB lighting, aircraft-grade aluminum frame, and programmable macros.",
+    price: 7999,
+    compareAtPrice: null,
+    images: ["/placeholder-product.jpg"],
+    stock: 30,
+    isActive: true,
+    isFeatured: true,
+    avgRating: 470,
+    reviewCount: 312,
+  },
 };
+
+async function fetchProduct(slug: string): Promise<Product | null> {
+  try {
+    const { getProductBySlug } = await import("@amazone/products");
+    const product = await getProductBySlug(slug);
+    return product ?? null;
+  } catch {
+    return placeholderProducts[slug] ?? null;
+  }
+}
 
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params;
-  // TODO: const product = await getProductBySlug(slug);
-  const product = slug === placeholderProduct.slug ? placeholderProduct : null;
+  const product = await fetchProduct(slug);
 
   if (!product) {
     return { title: "Product Not Found — Amazone" };
@@ -55,8 +88,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
-  // TODO: const product = await getProductBySlug(slug);
-  const product = slug === placeholderProduct.slug ? placeholderProduct : null;
+  const product = await fetchProduct(slug);
 
   if (!product) {
     notFound();
@@ -100,7 +132,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   className="h-20 w-20 overflow-hidden rounded-md border"
                 >
                   <img
-                    src={img}
+                    src={img!}
                     alt={`${product.name} ${i + 1}`}
                     className="h-full w-full object-cover"
                   />

@@ -12,10 +12,13 @@
     "db:generate": "pnpm drizzle-kit generate --config packages/db/drizzle.config.ts",
     "db:migrate": "pnpm drizzle-kit migrate --config packages/db/drizzle.config.ts",
     "db:studio": "pnpm drizzle-kit studio --config packages/db/drizzle.config.ts",
+    "db:seed": "pnpm --filter @amazone/db db:seed",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "e2e": "pnpm nx e2e web",
-    "e2e:ui": "pnpm --filter @amazone/web e2e:ui"
+    "e2e:ui": "pnpm --filter @amazone/web e2e:ui",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
   },
   "dependencies": {
     "@stripe/stripe-js": "^7.0.0",

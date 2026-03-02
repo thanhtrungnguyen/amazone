@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { SupportedLocale } from "@amazone/shared-utils";
 
 interface CurrencyToggleProps {

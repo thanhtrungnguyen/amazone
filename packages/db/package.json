@@ -9,12 +9,16 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts"
   },
+  "scripts": {
+    "db:seed": "tsx src/seed.ts"
+  },
   "dependencies": {
     "drizzle-orm": "^0.44.0",
     "postgres": "^3.4.5"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.0",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.2"
   }
 }

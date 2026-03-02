@@ -1,6 +1,6 @@
 "use server";
 
-import { db, cartItems, products } from "@amazone/db";
+import { db, cartItems } from "@amazone/db";
 import { eq, and } from "drizzle-orm";
 import {
   addToCartSchema,
