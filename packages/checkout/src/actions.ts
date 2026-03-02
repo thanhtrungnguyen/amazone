@@ -11,10 +11,10 @@ import {
   type CheckoutResult,
 } from "./types";
 
-function getStripe(): Stripe {
+function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
-    throw new Error("STRIPE_SECRET_KEY environment variable is not set");
+    return null;
   }
   return new Stripe(key);
 }
@@ -66,6 +66,14 @@ export async function createCheckoutSession(
     }))
   );
 
+  // Stub mode: if Stripe is not configured, return a stub result
+  if (!stripe) {
+    return {
+      sessionId: `stub_${order.id}`,
+      url: validated.successUrl,
+    };
+  }
+
   // Create Stripe checkout session
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -109,6 +117,11 @@ export async function handleWebhookEvent(
   signature: string
 ): Promise<void> {
   const stripe = getStripe();
+
+  if (!stripe) {
+    throw new Error("STRIPE_SECRET_KEY environment variable is not set");
+  }
+
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!webhookSecret) {

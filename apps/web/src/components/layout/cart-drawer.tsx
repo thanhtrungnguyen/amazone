@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ShoppingCart, Trash2 } from "lucide-react";
 import {
   Sheet,
@@ -97,8 +98,10 @@ export function CartDrawer(): React.ReactElement {
                 </span>
               </div>
               <div className="flex flex-col gap-2">
-                <Button className="w-full" size="lg">
-                  Checkout
+                <Button className="w-full" size="lg" asChild>
+                  <Link href="/checkout" onClick={close}>
+                    Checkout
+                  </Link>
                 </Button>
                 <div className="flex gap-2">
                   <Button

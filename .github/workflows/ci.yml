@@ -1,0 +1,292 @@
+# -------------------------------------------------------------------
+# CI/CD Pipeline for the amazone Nx monorepo
+#
+# CI: Runs on every push and on PRs targeting main/develop.
+#     Uses Nx affected commands so only changed packages are processed.
+#
+# CD: On push to main, builds a Docker image and publishes it to
+#     GitHub Container Registry (ghcr.io).
+# -------------------------------------------------------------------
+
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - main
+      - develop
+
+# Cancel redundant runs on the same branch / PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege defaults; jobs opt-in to what they need.
+permissions:
+  contents: read
+
+# ── shared environment ──────────────────────────────────────────────
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "10.15.1"
+  NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
+  # Nx affected comparison refs
+  NX_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+  NX_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
+# ====================================================================
+# CI JOBS
+# ====================================================================
+jobs:
+  # ── 1. Setup & Install ────────────────────────────────────────────
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Restore Nx cache
+        uses: actions/cache@v4
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nx-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Persist the entire workspace so downstream jobs skip install.
+      - name: Cache workspace
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            .nx/cache
+          key: workspace-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+
+  # ── 2. Lint / Build / Test (parallel matrix) ─────────────────────
+  ci:
+    name: ${{ matrix.target }}
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [lint, build, test]
+        include:
+          - target: lint
+            command: pnpm nx affected -t lint
+          - target: build
+            command: pnpm nx affected -t build
+          - target: test
+            command: pnpm nx affected -t test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Restore workspace cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            .nx/cache
+          key: workspace-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+
+      - name: Restore Next.js build cache
+        if: matrix.target == 'build'
+        uses: actions/cache@v4
+        with:
+          path: apps/web/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/src/**') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nextjs-${{ runner.os }}-
+
+      - name: Set SHAs for Nx affected
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Run ${{ matrix.target }}
+        run: ${{ matrix.command }}
+        env:
+          # The Next.js build requires AUTH_SECRET at build time (NextAuth.js v5).
+          AUTH_SECRET: ${{ matrix.target == 'build' && 'ci-test-secret' || '' }}
+          # Prevent Next.js telemetry from running in CI.
+          NEXT_TELEMETRY_DISABLED: "1"
+
+  # ── 3. E2E Tests (PRs only) ──────────────────────────────────────
+  e2e:
+    name: e2e
+    needs: ci
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: amazone
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d amazone"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Restore workspace cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            .nx/cache
+          key: workspace-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @amazone/web exec playwright install --with-deps chromium
+
+      - name: Set SHAs for Nx affected
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Run E2E tests
+        run: pnpm nx affected -t e2e
+        env:
+          CI: "true"
+          DATABASE_URL: postgresql://user:password@localhost:5432/amazone
+          AUTH_SECRET: ci-test-secret
+          NEXTAUTH_URL: http://localhost:3000
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 14
+
+  # ── 4. CI Gate (single status check for branch protection) ────────
+  ci-pass:
+    name: CI Pass
+    if: always()
+    needs: [ci, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate CI results
+        run: |
+          echo "CI matrix result: ${{ needs.ci.result }}"
+          echo "E2E result:       ${{ needs.e2e.result }}"
+          if [[ "${{ needs.ci.result }}" != "success" ]]; then
+            echo "::error::CI matrix jobs failed or were cancelled."
+            exit 1
+          fi
+          # E2E is allowed to be skipped (only runs on PRs).
+          if [[ "${{ needs.e2e.result }}" == "failure" || "${{ needs.e2e.result }}" == "cancelled" ]]; then
+            echo "::error::E2E tests failed or were cancelled."
+            exit 1
+          fi
+          echo "All required checks passed."
+
+  # ================================================================
+  # CD: Docker build + push to GHCR (main branch only)
+  # ================================================================
+  docker:
+    name: Docker Build & Push
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            PNPM_VERSION=${{ env.PNPM_VERSION }}

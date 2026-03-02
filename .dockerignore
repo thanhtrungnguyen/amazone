@@ -1,0 +1,46 @@
+# Dependencies (re-installed in Docker build)
+node_modules
+**/node_modules
+
+# Build outputs
+.next
+**/dist
+**/.next
+
+# Nx cache
+.nx
+
+# Git
+.git
+.gitignore
+
+# Environment files (secrets must be injected at runtime)
+.env
+.env.*
+!.env.example
+
+# IDE / editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+coverage
+**/coverage
+playwright-report
+**/playwright-report
+test-results
+**/test-results
+
+# Docker (prevent recursive context)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# CI
+.github
+
+# Docs / config not needed at build time
+*.md
+LICENSE

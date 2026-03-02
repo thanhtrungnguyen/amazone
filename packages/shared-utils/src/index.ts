@@ -19,3 +19,5 @@ export {
   RATING_MIN,
   RATING_MAX,
 } from "./constants";
+
+export { logger, createLogger } from "./logger";

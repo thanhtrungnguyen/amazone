@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { ProductCard } from "@amazone/shared-ui";
 import {
   ShoppingCart,
   Package,
@@ -18,6 +19,7 @@ import {
   Database,
   Layers,
   Shield,
+  ArrowRight,
 } from "lucide-react";
 
 const features = [
@@ -73,7 +75,72 @@ const features = [
   },
 ];
 
-export default function HomePage() {
+// Placeholder featured products (used when DB is not connected)
+const placeholderFeatured = [
+  {
+    name: "Premium Wireless Headphones",
+    slug: "premium-wireless-headphones",
+    price: 9999,
+    compareAtPrice: 14999,
+    image: null,
+    avgRating: 450,
+    reviewCount: 128,
+  },
+  {
+    name: "Mechanical Gaming Keyboard",
+    slug: "mechanical-gaming-keyboard",
+    price: 7999,
+    compareAtPrice: undefined,
+    image: null,
+    avgRating: 470,
+    reviewCount: 312,
+  },
+  {
+    name: 'Ultra HD Smart TV 55"',
+    slug: "ultra-hd-smart-tv-55",
+    price: 49999,
+    compareAtPrice: 59999,
+    image: null,
+    avgRating: 420,
+    reviewCount: 89,
+  },
+  {
+    name: "Bluetooth Portable Speaker",
+    slug: "bluetooth-portable-speaker",
+    price: 3999,
+    compareAtPrice: undefined,
+    image: null,
+    avgRating: 430,
+    reviewCount: 245,
+  },
+];
+
+async function getFeaturedProducts() {
+  try {
+    const { listProducts } = await import("@amazone/products");
+    const products = await listProducts({
+      isFeatured: true,
+      isActive: true,
+      sortBy: "newest",
+      limit: 4,
+    });
+    return products.map((p) => ({
+      name: p.name,
+      slug: p.slug,
+      price: p.price,
+      compareAtPrice: p.compareAtPrice ?? undefined,
+      image: p.images?.[0] ?? null,
+      avgRating: p.avgRating,
+      reviewCount: p.reviewCount,
+    }));
+  } catch {
+    return placeholderFeatured;
+  }
+}
+
+export default async function HomePage() {
+  const featured = await getFeaturedProducts();
+
   return (
     <>
       {/* Hero */}
@@ -95,6 +162,35 @@ export default function HomePage() {
           <Button size="lg" variant="outline" asChild>
             <Link href="/dashboard">Seller Dashboard</Link>
           </Button>
+        </div>
+      </section>
+
+      <Separator />
+
+      {/* Featured Products */}
+      <section className="mx-auto w-full max-w-6xl px-6 py-16">
+        <div className="mb-8 flex items-center justify-between">
+          <h2 className="text-3xl font-semibold">Featured Products</h2>
+          <Button variant="ghost" asChild>
+            <Link href="/products" className="flex items-center gap-1">
+              View All <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {featured.map((product) => (
+            <ProductCard
+              key={product.slug}
+              name={product.name}
+              slug={product.slug}
+              priceInCents={product.price}
+              compareAtPriceInCents={product.compareAtPrice}
+              image={product.image}
+              rating={product.avgRating}
+              reviewCount={product.reviewCount}
+              badge="Featured"
+            />
+          ))}
         </div>
       </section>
 

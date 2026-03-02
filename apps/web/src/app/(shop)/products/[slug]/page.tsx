@@ -8,6 +8,7 @@ import { ShoppingCart, Truck, Shield, RotateCcw } from "lucide-react";
 import { RatingStars } from "@amazone/shared-ui";
 import { formatPrice } from "@amazone/shared-utils";
 import { AddToCartButton } from "./add-to-cart-button";
+import { ProductReviews } from "./product-reviews";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -247,12 +248,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </div>
               }
             >
-              <p className="text-muted-foreground">
-                Connect your database to see reviews. Run{" "}
-                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                  docker compose up -d && pnpm db:migrate
-                </code>
-              </p>
+              <ProductReviews productId={product.id} />
             </Suspense>
           </TabsContent>
         </Tabs>
