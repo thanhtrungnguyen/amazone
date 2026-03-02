@@ -41,3 +41,17 @@ shipped → returned → refunded
 ```
 
 Validate state transitions — never allow invalid jumps (e.g., `delivered → pending`).
+
+## Webhook Reliability
+
+- Return `200` immediately, process asynchronously if heavy
+- Store webhook event ID to prevent duplicate processing
+- Handle out-of-order events (e.g., `payment_intent.succeeded` before `checkout.session.completed`)
+- Log webhook event type and ID for debugging — never log full payload in production
+- Set up Stripe CLI for local testing: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
+
+## Multi-Currency (i18n)
+
+- Default currency: USD (for `en` locale)
+- Vietnamese locale (`vi`): display VND equivalent, but process payments in USD via Stripe
+- Use `Intl.NumberFormat` for display — never manually format currency strings

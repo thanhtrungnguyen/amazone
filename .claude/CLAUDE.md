@@ -5,7 +5,7 @@
 Full-featured e-commerce platform (Amazon-like) built as a **package-based Nx monorepo**.
 
 - **Monorepo**: Nx (package-based — each project has its own `package.json`)
-- **App**: Next.js 15 (App Router, full-stack with Server Components + Server Actions)
+- **App**: Next.js 16 (App Router, React 19, Turbopack, `use cache`)
 - **Database**: PostgreSQL + Drizzle ORM
 - **Auth**: NextAuth.js v5
 - **Payments**: Stripe
@@ -18,7 +18,7 @@ Full-featured e-commerce platform (Amazon-like) built as a **package-based Nx mo
 ```text
 amazone/
 ├── apps/
-│   └── web/                        # Next.js 15 full-stack app
+│   └── web/                        # Next.js 16 full-stack app
 │       ├── src/
 │       │   ├── app/                # App Router pages, layouts, API routes
 │       │   │   ├── (shop)/         # Public storefront route group
@@ -216,6 +216,15 @@ After completing a feature, review for reuse opportunities and code quality.
 | Code review              | `/code-review`      |
 | Create a plugin          | `/create-plugin`    |
 | Debug with loops         | `/ralph-loop`       |
+| Performance audit        | `/perf`             |
+| Database migrations      | `/migrate`          |
+| Env variable check       | `/env-check`        |
+| Accessibility audit      | `/a11y`             |
+| Dependency management    | `/deps`             |
+| Code refactoring         | `/refactor`         |
+| Docker setup             | `/docker`           |
+| Stripe testing           | `/stripe-test`      |
+| Internationalization     | `/i18n`             |
 
 ## Multi-Agent Collaboration
 
@@ -230,7 +239,8 @@ This project includes specialized agents in `.claude/agents/` for team collabora
 | `payments-agent` | Stripe, checkout, orders, webhooks              | Purple |
 | `domain-logic`   | Business logic, server actions, Zod schemas     | Orange |
 | `devops`         | Nx config, CI/CD, Docker, deployment            | Red    |
-| `qa-tester`      | Unit tests, integration tests, Vitest           | Yellow |
+| `qa-tester`      | Unit, integration, E2E tests, Vitest, Playwright| Yellow |
+| `researcher`     | Audit .claude setup, project quality, deps      | Cyan   |
 
 ### Collaboration Workflow
 

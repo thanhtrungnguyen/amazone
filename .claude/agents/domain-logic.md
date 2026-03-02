@@ -41,3 +41,18 @@ You are a senior backend engineer implementing domain business logic for the ama
 - Products: soft-delete only, maintain search index, price in cents
 - Reviews: one review per user per product, 1-5 star rating required, optional text
 - Users: email unique, password hashed with bcrypt, support multiple addresses
+
+## i18n Considerations
+
+- Product names/descriptions support translations via `product_translations` table
+- Category names support translations via `category_translations` table
+- Server actions accept `locale` parameter when returning translatable content
+- Error messages returned from actions should be translation keys, not hardcoded strings
+- Format prices using `@amazone/shared-utils` formatPrice with locale parameter
+
+## Error Handling
+
+- Wrap DB operations in try/catch — return `{ success: false, error }` on failure
+- Use Zod `.safeParse()` — never throw on validation errors
+- Log errors server-side with context (action name, user ID, input summary)
+- Never expose internal error details to the client

@@ -38,4 +38,20 @@ Key tables and their relationships:
 - `orders` → `order_items`, `payments`
 - `sellers` → `products`, `seller_profiles`
 
+## i18n Data Model
+
+For multi-language content (EN/VN):
+- Use a `product_translations` table: `product_id`, `locale`, `name`, `description`
+- Category names stored in a `category_translations` table
+- Query with locale filter: `where(eq(translations.locale, locale))`
+- Default to `en` if translation is missing
+
+## Performance
+
+- Use connection pooling (configure `max` connections in postgres driver)
+- Prefer `select` with specific columns over `select *` for large tables
+- Use `with` (Drizzle relations) for eager loading — avoid N+1 queries
+- Add composite indexes for common multi-column queries (e.g., `[productId, locale]`)
+- Use `limit` and cursor-based pagination — never `offset` for large datasets
+
 Always validate schema changes against existing relations before generating migrations.

@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+.next/
+dist/
+out/
+.turbo/
+tmp/
+
+# Nx
+.nx/
+
+# Generated
+packages/db/src/migrations/
+*.generated.ts
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Lock files (large, not useful to read)
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Test coverage
+coverage/
+
+# Playwright
+test-results/
+playwright-report/

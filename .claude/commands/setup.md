@@ -7,7 +7,8 @@ Follow these steps in order:
    - Move generated files to the current directory if needed
 
 2. Create the Next.js app at `apps/web/`:
-   - Initialize Next.js 15 with App Router, TypeScript, Tailwind CSS, `src/` directory
+   - Initialize Next.js 16 with App Router, React 19, TypeScript, Tailwind CSS, `src/` directory
+   - Turbopack is the default bundler — no extra config needed
    - Configure `next.config.ts` to support package imports from `packages/*`
    - Add Nx plugin: `@nx/next`
 
