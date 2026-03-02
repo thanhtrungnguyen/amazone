@@ -7,7 +7,7 @@ import {
   updateReviewSchema,
   type CreateReviewInput,
   type UpdateReviewInput,
-} from "./types.js";
+} from "./types";
 
 export async function createReview(
   userId: string,

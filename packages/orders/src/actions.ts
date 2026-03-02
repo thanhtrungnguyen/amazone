@@ -7,7 +7,7 @@ import {
   updateOrderStatusSchema,
   type CreateOrderInput,
   type UpdateOrderStatusInput,
-} from "./types.js";
+} from "./types";
 
 export async function createOrder(
   userId: string,

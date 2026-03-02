@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -54,7 +55,8 @@ const features = [
   {
     icon: Database,
     title: "Database",
-    description: "PostgreSQL with Drizzle ORM — type-safe queries and migrations",
+    description:
+      "PostgreSQL with Drizzle ORM — type-safe queries and migrations",
     badge: "@amazone/db",
   },
   {
@@ -71,11 +73,11 @@ const features = [
   },
 ];
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <>
       {/* Hero */}
-      <header className="flex flex-col items-center gap-6 px-6 py-24 text-center">
+      <section className="flex flex-col items-center gap-6 px-6 py-24 text-center">
         <Badge variant="secondary" className="text-sm">
           Nx Monorepo + Next.js 16 + React 19
         </Badge>
@@ -87,12 +89,14 @@ export default function Home() {
           technologies. Package-based architecture with domain-driven design.
         </p>
         <div className="flex gap-3">
-          <Button size="lg">Browse Products</Button>
-          <Button size="lg" variant="outline">
-            Seller Dashboard
+          <Button size="lg" asChild>
+            <Link href="/products">Browse Products</Link>
+          </Button>
+          <Button size="lg" variant="outline" asChild>
+            <Link href="/dashboard">Seller Dashboard</Link>
           </Button>
         </div>
-      </header>
+      </section>
 
       <Separator />
 
@@ -151,14 +155,6 @@ export default function Home() {
           ))}
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="mt-auto border-t px-6 py-8 text-center text-sm text-muted-foreground">
-        <p>
-          Amazone — Built with Nx monorepo architecture.
-          Run <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">pnpm nx dev web</code> to start developing.
-        </p>
-      </footer>
-    </div>
+    </>
   );
 }

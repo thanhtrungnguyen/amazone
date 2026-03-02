@@ -9,7 +9,7 @@ import {
   type CreateProductInput,
   type UpdateProductInput,
   type ProductFilterInput,
-} from "./types.js";
+} from "./types";
 
 function generateSlug(name: string): string {
   return name

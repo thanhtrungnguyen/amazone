@@ -5,7 +5,7 @@ export {
   type CreateProductInput,
   type UpdateProductInput,
   type ProductFilterInput,
-} from "./types.js";
+} from "./types";
 
 export {
   createProduct,
@@ -14,4 +14,4 @@ export {
   getProductBySlug,
   listProducts,
   deleteProduct,
-} from "./actions.js";
+} from "./actions";

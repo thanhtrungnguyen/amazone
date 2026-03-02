@@ -1,0 +1,23 @@
+import { NextRequest, NextResponse } from "next/server";
+import { handleWebhookEvent } from "@amazone/checkout";
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const payload = await request.text();
+  const signature = request.headers.get("stripe-signature");
+
+  if (!signature) {
+    return NextResponse.json(
+      { error: "Missing stripe-signature header" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    await handleWebhookEvent(payload, signature);
+    return NextResponse.json({ received: true });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Webhook handler failed";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+}

@@ -3,7 +3,7 @@ export {
   formatPriceVN,
   centsToDollars,
   dollarsToCents,
-} from "./format-price.js";
+} from "./format-price";
 
 export {
   APP_NAME,
@@ -18,4 +18,4 @@ export {
   DEFAULT_LOCALE,
   RATING_MIN,
   RATING_MAX,
-} from "./constants.js";
+} from "./constants";

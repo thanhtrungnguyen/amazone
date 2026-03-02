@@ -4,11 +4,11 @@ export {
   type CreateOrderInput,
   type UpdateOrderStatusInput,
   type OrderWithItems,
-} from "./types.js";
+} from "./types";
 
 export {
   createOrder,
   getOrder,
   listOrders,
   updateOrderStatus,
-} from "./actions.js";
+} from "./actions";

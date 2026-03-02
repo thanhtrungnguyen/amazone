@@ -3,11 +3,11 @@ export {
   updateReviewSchema,
   type CreateReviewInput,
   type UpdateReviewInput,
-} from "./types.js";
+} from "./types";
 
 export {
   createReview,
   updateReview,
   deleteReview,
   getProductReviews,
-} from "./actions.js";
+} from "./actions";

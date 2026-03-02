@@ -1,5 +1,5 @@
 import { formatPrice } from "@amazone/shared-utils";
-import { RatingStars } from "./rating-stars.js";
+import { RatingStars } from "./rating-stars";
 
 interface ProductCardProps {
   name: string;

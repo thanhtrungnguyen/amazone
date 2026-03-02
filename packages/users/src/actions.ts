@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import {
   updateProfileSchema,
   type UpdateProfileInput,
-} from "./types.js";
+} from "./types";
 
 export async function getUserById(
   userId: string

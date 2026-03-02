@@ -2,9 +2,9 @@ export {
   checkoutSessionSchema,
   type CheckoutSessionInput,
   type CheckoutResult,
-} from "./types.js";
+} from "./types";
 
 export {
   createCheckoutSession,
   handleWebhookEvent,
-} from "./actions.js";
+} from "./actions";

@@ -5,7 +5,7 @@ export {
   type UpdateCartItemInput,
   type CartItemWithProduct,
   type CartSummary,
-} from "./types.js";
+} from "./types";
 
 export {
   addToCart,
@@ -13,4 +13,4 @@ export {
   removeFromCart,
   getCart,
   clearCart,
-} from "./actions.js";
+} from "./actions";

@@ -5,11 +5,11 @@ export {
   type UpdateProfileInput,
   type RegisterInput,
   type LoginInput,
-} from "./types.js";
+} from "./types";
 
 export {
   getUserById,
   getUserByEmail,
   updateProfile,
   createUser,
-} from "./actions.js";
+} from "./actions";

@@ -9,7 +9,7 @@ import {
   checkoutSessionSchema,
   type CheckoutSessionInput,
   type CheckoutResult,
-} from "./types.js";
+} from "./types";
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;

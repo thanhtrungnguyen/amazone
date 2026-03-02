@@ -8,7 +8,7 @@ import {
   type AddToCartInput,
   type UpdateCartItemInput,
   type CartSummary,
-} from "./types.js";
+} from "./types";
 
 export async function addToCart(
   userId: string,
