@@ -1,0 +1,60 @@
+{
+  "name": "@amazone/source",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "packageManager": "pnpm@10.15.1",
+  "scripts": {
+    "dev": "pnpm nx dev web",
+    "build": "pnpm nx build web",
+    "lint": "pnpm nx run-many -t lint",
+    "test": "pnpm nx run-many -t test",
+    "db:generate": "pnpm drizzle-kit generate --config packages/db/drizzle.config.ts",
+    "db:migrate": "pnpm drizzle-kit migrate --config packages/db/drizzle.config.ts",
+    "db:studio": "pnpm drizzle-kit studio --config packages/db/drizzle.config.ts",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "e2e": "pnpm nx e2e web",
+    "e2e:ui": "pnpm --filter @amazone/web e2e:ui"
+  },
+  "dependencies": {
+    "@stripe/stripe-js": "^7.0.0",
+    "drizzle-orm": "^0.44.0",
+    "lucide-react": "^0.509.0",
+    "postgres": "^3.4.5",
+    "stripe": "^18.0.0",
+    "zod": "^3.24.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.8.0",
+    "@nx/eslint": "22.5.1",
+    "@nx/eslint-plugin": "22.5.1",
+    "@nx/js": "22.5.1",
+    "@nx/next": "22.5.1",
+    "@nx/vite": "22.5.1",
+    "@nx/vitest": "22.5.1",
+    "@nx/web": "22.5.1",
+    "@swc-node/register": "1.11.1",
+    "@swc/core": "1.15.8",
+    "@swc/helpers": "0.5.18",
+    "@types/node": "20.19.9",
+    "@vitest/coverage-v8": "4.0.9",
+    "@vitest/ui": "4.0.9",
+    "drizzle-kit": "^0.31.0",
+    "eslint": "~8.57.0",
+    "jiti": "2.4.2",
+    "jsonc-eslint-parser": "^2.1.0",
+    "nx": "22.5.1",
+    "prettier": "^3.5.0",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "tslib": "^2.3.0",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.40.0",
+    "vite": "^7.0.0",
+    "vitest": "4.0.9"
+  },
+  "nx": {
+    "includedScripts": []
+  }
+}
