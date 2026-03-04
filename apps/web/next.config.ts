@@ -13,7 +13,16 @@ const nextConfig: NextConfig = {
     "@amazone/shared-utils",
   ],
   output: "standalone",
-  serverExternalPackages: ["postgres"],
+  serverExternalPackages: [
+    "postgres",
+    "@opentelemetry/sdk-node",
+    "@opentelemetry/auto-instrumentations-node",
+    "@opentelemetry/exporter-trace-otlp-http",
+    "@opentelemetry/exporter-metrics-otlp-http",
+    "@opentelemetry/exporter-logs-otlp-http",
+    "@opentelemetry/sdk-logs",
+    "@opentelemetry/resources",
+  ],
 };
 
 export default nextConfig;

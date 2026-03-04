@@ -1,6 +1,7 @@
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+import { DrizzleOtelLogger } from "./otel-logger";
 
 export type Database = PostgresJsDatabase<typeof schema>;
 
@@ -19,7 +20,7 @@ export function getDb(): Database {
       throw new Error("DATABASE_URL environment variable is not set");
     }
     const client = postgres(connectionString);
-    _db = drizzle(client, { schema });
+    _db = drizzle(client, { schema, logger: new DrizzleOtelLogger() });
   }
   return _db;
 }
