@@ -3,7 +3,7 @@
 import Stripe from "stripe";
 import { getCart } from "@amazone/cart";
 import { createOrder } from "@amazone/orders";
-import { db, products, orders } from "@amazone/db";
+import { db, products, orders, stripeWebhookEvents } from "@amazone/db";
 import { eq, inArray } from "drizzle-orm";
 import {
   checkoutSessionSchema,
@@ -49,7 +49,7 @@ export async function createCheckoutSession(
     }
   }
 
-  // Create order with verified prices
+  // Create order with verified prices (atomic DB transaction in @amazone/orders)
   const order = await createOrder(
     userId,
     {
@@ -70,14 +70,14 @@ export async function createCheckoutSession(
   if (!stripe) {
     return {
       sessionId: `stub_${order.id}`,
-      url: validated.successUrl,
+      url: `${validated.successUrl}?session_id=stub_${order.id}&order_id=${order.id}`,
     };
   }
 
   // Create Stripe checkout session
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    customer_email: undefined, // Will be set from auth
+    customer_email: undefined, // Will be set from auth session if available
     line_items: cart.items.map((item) => ({
       price_data: {
         currency: "usd",
@@ -93,8 +93,8 @@ export async function createCheckoutSession(
       orderId: order.id,
       userId,
     },
-    success_url: validated.successUrl,
-    cancel_url: validated.cancelUrl,
+    success_url: `${validated.successUrl}?session_id={CHECKOUT_SESSION_ID}&order_id=${order.id}`,
+    cancel_url: `${validated.cancelUrl}?order_id=${order.id}`,
   });
 
   // Store Stripe session ID on the order
@@ -110,6 +110,33 @@ export async function createCheckoutSession(
     sessionId: session.id,
     url: session.url!,
   };
+}
+
+/**
+ * Check whether a webhook event has already been processed (idempotency).
+ * Returns true if the event was already processed.
+ */
+async function isEventProcessed(eventId: string): Promise<boolean> {
+  const existing = await db
+    .select({ id: stripeWebhookEvents.id })
+    .from(stripeWebhookEvents)
+    .where(eq(stripeWebhookEvents.id, eventId))
+    .limit(1);
+
+  return existing.length > 0;
+}
+
+/**
+ * Mark a webhook event as processed.
+ */
+async function markEventProcessed(
+  eventId: string,
+  eventType: string
+): Promise<void> {
+  await db
+    .insert(stripeWebhookEvents)
+    .values({ id: eventId, type: eventType })
+    .onConflictDoNothing();
 }
 
 export async function handleWebhookEvent(
@@ -134,23 +161,131 @@ export async function handleWebhookEvent(
     webhookSecret
   );
 
+  // Idempotency: skip if already processed
+  if (await isEventProcessed(event.id)) {
+    return;
+  }
+
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object;
       const orderId = session.metadata?.orderId;
 
       if (orderId) {
-        await db
-          .update(orders)
-          .set({
-            status: "confirmed",
-            stripePaymentIntentId:
-              typeof session.payment_intent === "string"
-                ? session.payment_intent
-                : session.payment_intent?.id,
-            updatedAt: new Date(),
-          })
-          .where(eq(orders.id, orderId));
+        // Only transition from "pending" to "confirmed" (guard against out-of-order)
+        const [existing] = await db
+          .select({ status: orders.status })
+          .from(orders)
+          .where(eq(orders.id, orderId))
+          .limit(1);
+
+        if (existing && existing.status === "pending") {
+          await db
+            .update(orders)
+            .set({
+              status: "confirmed",
+              stripePaymentIntentId:
+                typeof session.payment_intent === "string"
+                  ? session.payment_intent
+                  : session.payment_intent?.id,
+              updatedAt: new Date(),
+            })
+            .where(eq(orders.id, orderId));
+        }
+      }
+      break;
+    }
+
+    case "payment_intent.succeeded": {
+      const paymentIntent = event.data.object;
+      const orderId = paymentIntent.metadata?.orderId;
+
+      if (orderId) {
+        // Handle out-of-order: if checkout.session.completed hasn't arrived yet,
+        // this event can also confirm the order
+        const [existing] = await db
+          .select({ status: orders.status })
+          .from(orders)
+          .where(eq(orders.id, orderId))
+          .limit(1);
+
+        if (existing && existing.status === "pending") {
+          await db
+            .update(orders)
+            .set({
+              status: "confirmed",
+              stripePaymentIntentId: paymentIntent.id,
+              updatedAt: new Date(),
+            })
+            .where(eq(orders.id, orderId));
+        }
+      }
+      break;
+    }
+
+    case "payment_intent.payment_failed": {
+      const paymentIntent = event.data.object;
+      const orderId = paymentIntent.metadata?.orderId;
+
+      if (orderId) {
+        const [existing] = await db
+          .select({ status: orders.status })
+          .from(orders)
+          .where(eq(orders.id, orderId))
+          .limit(1);
+
+        // Only mark as cancelled if still pending (not yet confirmed/shipped)
+        if (existing && existing.status === "pending") {
+          await db
+            .update(orders)
+            .set({
+              status: "cancelled",
+              stripePaymentIntentId: paymentIntent.id,
+              updatedAt: new Date(),
+            })
+            .where(eq(orders.id, orderId));
+        }
+      }
+      break;
+    }
+
+    case "charge.refunded": {
+      const charge = event.data.object;
+      const paymentIntentId =
+        typeof charge.payment_intent === "string"
+          ? charge.payment_intent
+          : charge.payment_intent?.id;
+
+      if (paymentIntentId) {
+        // Find order by payment intent ID and mark as refunded
+        const [existing] = await db
+          .select({ id: orders.id, status: orders.status })
+          .from(orders)
+          .where(eq(orders.stripePaymentIntentId, paymentIntentId))
+          .limit(1);
+
+        if (existing) {
+          // Valid refund transitions: confirmed, processing, shipped -> refunded
+          // Note: "returned" status can be added to orderStatusEnum in a future migration
+          const refundableStatuses = [
+            "confirmed",
+            "processing",
+            "shipped",
+          ] as const;
+          if (
+            refundableStatuses.includes(
+              existing.status as (typeof refundableStatuses)[number]
+            )
+          ) {
+            await db
+              .update(orders)
+              .set({
+                status: "refunded",
+                updatedAt: new Date(),
+              })
+              .where(eq(orders.id, existing.id));
+          }
+        }
       }
       break;
     }
@@ -160,15 +295,26 @@ export async function handleWebhookEvent(
       const orderId = session.metadata?.orderId;
 
       if (orderId) {
-        await db
-          .update(orders)
-          .set({
-            status: "cancelled",
-            updatedAt: new Date(),
-          })
-          .where(eq(orders.id, orderId));
+        const [existing] = await db
+          .select({ status: orders.status })
+          .from(orders)
+          .where(eq(orders.id, orderId))
+          .limit(1);
+
+        if (existing && existing.status === "pending") {
+          await db
+            .update(orders)
+            .set({
+              status: "cancelled",
+              updatedAt: new Date(),
+            })
+            .where(eq(orders.id, orderId));
+        }
       }
       break;
     }
   }
+
+  // Mark event as processed after successful handling
+  await markEventProcessed(event.id, event.type);
 }

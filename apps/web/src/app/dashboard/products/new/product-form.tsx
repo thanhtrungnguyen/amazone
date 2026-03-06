@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +27,31 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
+const productSchema = z.object({
+  name: z.string().min(1, "Product name is required").max(255),
+  description: z.string().max(5000).optional(),
+  price: z
+    .string()
+    .min(1, "Price is required")
+    .refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, {
+      message: "Price must be a positive number",
+    }),
+  compareAtPrice: z
+    .string()
+    .optional()
+    .refine((v) => !v || (!isNaN(parseFloat(v)) && parseFloat(v) > 0), {
+      message: "Compare-at price must be a positive number",
+    }),
+  stock: z.string().refine((v) => !isNaN(parseInt(v, 10)) && parseInt(v, 10) >= 0, {
+    message: "Stock must be 0 or more",
+  }),
+  categoryId: z.string().optional(),
+  isActive: z.boolean(),
+  isFeatured: z.boolean(),
+});
+
+type ProductFormData = z.infer<typeof productSchema>;
+
 interface Category {
   id: string;
   name: string;
@@ -38,50 +66,43 @@ export function ProductForm({ categories }: ProductFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [priceDisplay, setPriceDisplay] = useState("");
-  const [compareAtPriceDisplay, setCompareAtPriceDisplay] = useState("");
-  const [stock, setStock] = useState("0");
-  const [categoryId, setCategoryId] = useState("");
-  const [isActive, setIsActive] = useState(true);
-  const [isFeatured, setIsFeatured] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm<ProductFormData>({
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      price: "",
+      compareAtPrice: "",
+      stock: "0",
+      categoryId: "",
+      isActive: true,
+      isFeatured: false,
+    },
+  });
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    const priceInCents = Math.round(parseFloat(priceDisplay) * 100);
-    if (isNaN(priceInCents) || priceInCents <= 0) {
-      toast.error("Please enter a valid price");
-      return;
-    }
-
-    const compareAtPriceInCents = compareAtPriceDisplay
-      ? Math.round(parseFloat(compareAtPriceDisplay) * 100)
+  function onSubmit(data: ProductFormData) {
+    const priceInCents = Math.round(parseFloat(data.price) * 100);
+    const compareAtPriceInCents = data.compareAtPrice
+      ? Math.round(parseFloat(data.compareAtPrice) * 100)
       : undefined;
-
-    if (compareAtPriceInCents !== undefined && isNaN(compareAtPriceInCents)) {
-      toast.error("Please enter a valid compare-at price");
-      return;
-    }
-
-    if (!name.trim()) {
-      toast.error("Product name is required");
-      return;
-    }
 
     startTransition(async () => {
       try {
         const { createProduct } = await import("@amazone/products");
         await createProduct("placeholder-seller-id", {
-          name: name.trim(),
-          description: description.trim() || undefined,
+          name: data.name.trim(),
+          description: data.description?.trim() || undefined,
           price: priceInCents,
           compareAtPrice: compareAtPriceInCents,
-          stock: parseInt(stock, 10) || 0,
-          categoryId: categoryId || undefined,
-          isActive,
-          isFeatured,
+          stock: parseInt(data.stock, 10) || 0,
+          categoryId: data.categoryId || undefined,
+          isActive: data.isActive,
+          isFeatured: data.isFeatured,
         });
 
         toast.success("Product created successfully!");
@@ -95,7 +116,7 @@ export function ProductForm({ categories }: ProductFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/dashboard/products">
@@ -124,10 +145,12 @@ export function ProductForm({ categories }: ProductFormProps) {
                 <Input
                   id="name"
                   placeholder="Premium Wireless Headphones"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
+                  {...register("name")}
+                  aria-invalid={!!errors.name}
                 />
+                {errors.name && (
+                  <p className="text-sm text-destructive">{errors.name.message}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -136,8 +159,7 @@ export function ProductForm({ categories }: ProductFormProps) {
                   id="description"
                   placeholder="Describe your product..."
                   rows={5}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  {...register("description")}
                 />
               </div>
             </CardContent>
@@ -158,10 +180,12 @@ export function ProductForm({ categories }: ProductFormProps) {
                     step="0.01"
                     min="0.01"
                     placeholder="99.99"
-                    value={priceDisplay}
-                    onChange={(e) => setPriceDisplay(e.target.value)}
-                    required
+                    {...register("price")}
+                    aria-invalid={!!errors.price}
                   />
+                  {errors.price && (
+                    <p className="text-sm text-destructive">{errors.price.message}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Selling price displayed to customers
                   </p>
@@ -174,9 +198,12 @@ export function ProductForm({ categories }: ProductFormProps) {
                     step="0.01"
                     min="0.01"
                     placeholder="129.99"
-                    value={compareAtPriceDisplay}
-                    onChange={(e) => setCompareAtPriceDisplay(e.target.value)}
+                    {...register("compareAtPrice")}
+                    aria-invalid={!!errors.compareAtPrice}
                   />
+                  {errors.compareAtPrice && (
+                    <p className="text-sm text-destructive">{errors.compareAtPrice.message}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Original price — shows as strikethrough
                   </p>
@@ -198,10 +225,13 @@ export function ProductForm({ categories }: ProductFormProps) {
                   type="number"
                   min="0"
                   placeholder="0"
-                  value={stock}
-                  onChange={(e) => setStock(e.target.value)}
+                  {...register("stock")}
+                  aria-invalid={!!errors.stock}
                   className="max-w-[200px]"
                 />
+                {errors.stock && (
+                  <p className="text-sm text-destructive">{errors.stock.message}</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -215,26 +245,38 @@ export function ProductForm({ categories }: ProductFormProps) {
               <CardTitle>Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isActive"
-                  checked={isActive}
-                  onCheckedChange={(checked) => setIsActive(checked === true)}
-                />
-                <Label htmlFor="isActive" className="font-normal">
-                  Active — visible on storefront
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isFeatured"
-                  checked={isFeatured}
-                  onCheckedChange={(checked) => setIsFeatured(checked === true)}
-                />
-                <Label htmlFor="isFeatured" className="font-normal">
-                  Featured — shown on homepage
-                </Label>
-              </div>
+              <Controller
+                control={control}
+                name="isActive"
+                render={({ field }) => (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="isActive"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                    <Label htmlFor="isActive" className="font-normal">
+                      Active — visible on storefront
+                    </Label>
+                  </div>
+                )}
+              />
+              <Controller
+                control={control}
+                name="isFeatured"
+                render={({ field }) => (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="isFeatured"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                    <Label htmlFor="isFeatured" className="font-normal">
+                      Featured — shown on homepage
+                    </Label>
+                  </div>
+                )}
+              />
             </CardContent>
           </Card>
 
@@ -245,18 +287,24 @@ export function ProductForm({ categories }: ProductFormProps) {
             </CardHeader>
             <CardContent>
               {categories.length > 0 ? (
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               ) : (
                 <p className="text-sm text-muted-foreground">
                   No categories available. Products can be added without a

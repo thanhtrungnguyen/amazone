@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ShoppingCart, Truck, Lock, ArrowLeft } from "lucide-react";
+import { ShoppingCart, Truck, Lock, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,15 +20,14 @@ import { Separator } from "@/components/ui/separator";
 import { useCartStore } from "@/stores/cart-store";
 import { formatPrice } from "@amazone/shared-utils";
 import { EmptyState } from "@amazone/shared-ui";
+import { submitCheckout } from "./actions";
 
-const shippingFormSchema = z.object({
+const shippingSchema = z.object({
   shippingName: z
     .string()
     .min(1, "Full name is required")
     .max(255, "Name is too long"),
-  shippingAddress: z
-    .string()
-    .min(1, "Address is required"),
+  shippingAddress: z.string().min(1, "Address is required"),
   shippingCity: z
     .string()
     .min(1, "City is required")
@@ -41,70 +41,42 @@ const shippingFormSchema = z.object({
     .max(20, "ZIP code is too long"),
 });
 
-type ShippingFormData = z.infer<typeof shippingFormSchema>;
-
-type FieldErrors = Partial<Record<keyof ShippingFormData, string>>;
+type ShippingFormData = z.infer<typeof shippingSchema>;
 
 export function CheckoutForm(): React.ReactElement {
-  const router = useRouter();
   const items = useCartStore((s) => s.items);
   const totalPrice = useCartStore((s) => s.totalPrice());
   const clearCart = useCartStore((s) => s.clear);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
-  const [formData, setFormData] = useState<ShippingFormData>({
-    shippingName: "",
-    shippingAddress: "",
-    shippingCity: "",
-    shippingCountry: "",
-    shippingZip: "",
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ShippingFormData>({
+    resolver: zodResolver(shippingSchema),
+    defaultValues: {
+      shippingName: "",
+      shippingAddress: "",
+      shippingCity: "",
+      shippingCountry: "",
+      shippingZip: "",
+    },
   });
 
-  function updateField(field: keyof ShippingFormData, value: string): void {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear field error on change
-    if (fieldErrors[field]) {
-      setFieldErrors((prev) => {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
-    }
-  }
-
-  async function handleSubmit(
-    event: React.FormEvent<HTMLFormElement>
-  ): Promise<void> {
-    event.preventDefault();
-    setFieldErrors({});
-
-    const result = shippingFormSchema.safeParse(formData);
-
-    if (!result.success) {
-      const errors: FieldErrors = {};
-      for (const issue of result.error.issues) {
-        const field = issue.path[0] as keyof ShippingFormData;
-        if (!errors[field]) {
-          errors[field] = issue.message;
-        }
-      }
-      setFieldErrors(errors);
-      return;
-    }
-
+  async function onSubmit(data: ShippingFormData): Promise<void> {
     setIsSubmitting(true);
 
     try {
-      // Stub action: simulate order placement
-      // When Stripe keys are configured, this will call createCheckoutSession
-      // and redirect to Stripe Checkout. For now, we show a success toast.
-      await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+      const response = await submitCheckout(data);
 
-      toast.success("Order placed successfully! Thank you for your purchase.");
+      if (!response.success) {
+        toast.error(response.error);
+        return;
+      }
+
       clearCart();
-      router.push("/");
+      window.location.href = response.data.url;
     } catch (error) {
       const message =
         error instanceof Error
@@ -146,7 +118,7 @@ export function CheckoutForm(): React.ReactElement {
 
       <h1 className="mb-8 text-3xl font-bold">Checkout</h1>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit(onSubmit)}>
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Shipping Address Form -- spans 2 columns */}
           <div className="lg:col-span-2">
@@ -170,16 +142,13 @@ export function CheckoutForm(): React.ReactElement {
                     <Input
                       id="shippingName"
                       placeholder="John Doe"
-                      value={formData.shippingName}
-                      onChange={(e) =>
-                        updateField("shippingName", e.target.value)
-                      }
-                      aria-invalid={!!fieldErrors.shippingName}
+                      {...register("shippingName")}
+                      aria-invalid={!!errors.shippingName}
                       disabled={isSubmitting}
                     />
-                    {fieldErrors.shippingName && (
+                    {errors.shippingName && (
                       <p className="text-sm text-destructive">
-                        {fieldErrors.shippingName}
+                        {errors.shippingName.message}
                       </p>
                     )}
                   </div>
@@ -195,16 +164,13 @@ export function CheckoutForm(): React.ReactElement {
                     <Input
                       id="shippingAddress"
                       placeholder="123 Main Street, Apt 4"
-                      value={formData.shippingAddress}
-                      onChange={(e) =>
-                        updateField("shippingAddress", e.target.value)
-                      }
-                      aria-invalid={!!fieldErrors.shippingAddress}
+                      {...register("shippingAddress")}
+                      aria-invalid={!!errors.shippingAddress}
                       disabled={isSubmitting}
                     />
-                    {fieldErrors.shippingAddress && (
+                    {errors.shippingAddress && (
                       <p className="text-sm text-destructive">
-                        {fieldErrors.shippingAddress}
+                        {errors.shippingAddress.message}
                       </p>
                     )}
                   </div>
@@ -221,16 +187,13 @@ export function CheckoutForm(): React.ReactElement {
                       <Input
                         id="shippingCity"
                         placeholder="New York"
-                        value={formData.shippingCity}
-                        onChange={(e) =>
-                          updateField("shippingCity", e.target.value)
-                        }
-                        aria-invalid={!!fieldErrors.shippingCity}
+                        {...register("shippingCity")}
+                        aria-invalid={!!errors.shippingCity}
                         disabled={isSubmitting}
                       />
-                      {fieldErrors.shippingCity && (
+                      {errors.shippingCity && (
                         <p className="text-sm text-destructive">
-                          {fieldErrors.shippingCity}
+                          {errors.shippingCity.message}
                         </p>
                       )}
                     </div>
@@ -246,19 +209,15 @@ export function CheckoutForm(): React.ReactElement {
                         id="shippingCountry"
                         placeholder="US"
                         maxLength={2}
-                        value={formData.shippingCountry}
-                        onChange={(e) =>
-                          updateField(
-                            "shippingCountry",
-                            e.target.value.toUpperCase()
-                          )
-                        }
-                        aria-invalid={!!fieldErrors.shippingCountry}
+                        {...register("shippingCountry", {
+                          setValueAs: (v: string) => v.toUpperCase(),
+                        })}
+                        aria-invalid={!!errors.shippingCountry}
                         disabled={isSubmitting}
                       />
-                      {fieldErrors.shippingCountry && (
+                      {errors.shippingCountry && (
                         <p className="text-sm text-destructive">
-                          {fieldErrors.shippingCountry}
+                          {errors.shippingCountry.message}
                         </p>
                       )}
                     </div>
@@ -275,16 +234,13 @@ export function CheckoutForm(): React.ReactElement {
                     <Input
                       id="shippingZip"
                       placeholder="10001"
-                      value={formData.shippingZip}
-                      onChange={(e) =>
-                        updateField("shippingZip", e.target.value)
-                      }
-                      aria-invalid={!!fieldErrors.shippingZip}
+                      {...register("shippingZip")}
+                      aria-invalid={!!errors.shippingZip}
                       disabled={isSubmitting}
                     />
-                    {fieldErrors.shippingZip && (
+                    {errors.shippingZip && (
                       <p className="text-sm text-destructive">
-                        {fieldErrors.shippingZip}
+                        {errors.shippingZip.message}
                       </p>
                     )}
                   </div>
@@ -304,7 +260,6 @@ export function CheckoutForm(): React.ReactElement {
                 <div className="flex flex-col divide-y">
                   {items.map((item) => (
                     <div key={item.id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
-                      {/* Item image */}
                       <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border bg-gray-100">
                         {item.image ? (
                           <img
@@ -319,7 +274,6 @@ export function CheckoutForm(): React.ReactElement {
                         )}
                       </div>
 
-                      {/* Item details */}
                       <div className="flex flex-1 items-center justify-between">
                         <div>
                           <p className="text-sm font-medium">{item.name}</p>
@@ -376,19 +330,18 @@ export function CheckoutForm(): React.ReactElement {
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      Processing...
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Redirecting to payment...
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">
                       <Lock className="h-4 w-4" />
-                      Place Order
+                      Proceed to Payment
                     </span>
                   )}
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
-                  By placing your order, you agree to our Terms of Service and
-                  Privacy Policy.
+                  You will be redirected to Stripe for secure payment processing.
                 </p>
               </CardFooter>
             </Card>

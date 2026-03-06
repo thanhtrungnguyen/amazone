@@ -20,6 +20,10 @@ import {
   Layers,
   Shield,
   ArrowRight,
+  Zap,
+  Truck,
+  RotateCcw,
+  Headphones,
 } from "lucide-react";
 
 const features = [
@@ -191,6 +195,87 @@ export default async function HomePage() {
               badge="Featured"
             />
           ))}
+        </div>
+      </section>
+
+      <Separator />
+
+      {/* Shop by Category */}
+      <section className="mx-auto w-full max-w-6xl px-6 py-16">
+        <div className="mb-8 flex items-center justify-between">
+          <h2 className="text-3xl font-semibold">Shop by Category</h2>
+          <Button variant="ghost" asChild>
+            <Link href="/categories" className="flex items-center gap-1">
+              All Categories <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { name: "Electronics", slug: "electronics", emoji: "🎧", count: 156 },
+            { name: "Clothing", slug: "clothing", emoji: "👕", count: 423 },
+            { name: "Home & Kitchen", slug: "home-kitchen", emoji: "🏠", count: 289 },
+            { name: "Books", slug: "books", emoji: "📚", count: 1024 },
+            { name: "Sports & Outdoors", slug: "sports-outdoors", emoji: "⚽", count: 178 },
+            { name: "Toys & Games", slug: "toys-games", emoji: "🎮", count: 312 },
+          ].map((cat) => (
+            <Link key={cat.slug} href={`/categories/${cat.slug}`}>
+              <Card className="transition-colors hover:border-primary">
+                <CardContent className="flex items-center gap-4 p-4">
+                  <span className="text-3xl">{cat.emoji}</span>
+                  <div>
+                    <p className="font-semibold">{cat.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {cat.count} products
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <Separator />
+
+      {/* Deals promo banner */}
+      <section className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-12 text-white">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 text-center">
+          <Zap className="h-10 w-10" />
+          <h2 className="text-3xl font-bold">Today&apos;s Deals</h2>
+          <p className="max-w-lg text-lg text-white/90">
+            Up to 50% off on selected products. Lightning deals updated every
+            hour.
+          </p>
+          <Button
+            size="lg"
+            variant="secondary"
+            className="bg-white text-orange-600 hover:bg-white/90"
+            asChild
+          >
+            <Link href="/deals">Shop Deals</Link>
+          </Button>
+        </div>
+      </section>
+
+      {/* Trust badges */}
+      <section className="mx-auto w-full max-w-4xl px-6 py-12">
+        <div className="grid gap-6 sm:grid-cols-3">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <Truck className="h-8 w-8 text-primary" />
+            <p className="font-semibold">Free Shipping</p>
+            <p className="text-sm text-muted-foreground">On orders over $50</p>
+          </div>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <RotateCcw className="h-8 w-8 text-primary" />
+            <p className="font-semibold">Easy Returns</p>
+            <p className="text-sm text-muted-foreground">30-day return policy</p>
+          </div>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <Headphones className="h-8 w-8 text-primary" />
+            <p className="font-semibold">24/7 Support</p>
+            <p className="text-sm text-muted-foreground">Chat, email, or phone</p>
+          </div>
         </div>
       </section>
 

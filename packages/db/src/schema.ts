@@ -157,6 +157,14 @@ export const orderItems = pgTable("order_items", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
+// ─── Stripe Webhook Events (idempotency) ────────────
+
+export const stripeWebhookEvents = pgTable("stripe_webhook_events", {
+  id: varchar("id", { length: 255 }).primaryKey(), // Stripe event ID (evt_...)
+  type: varchar("type", { length: 255 }).notNull(),
+  processedAt: timestamp("processed_at", { mode: "date" }).defaultNow().notNull(),
+});
+
 // ─── Reviews ────────────────────────────────────────────
 
 export const reviews = pgTable(

@@ -1,6 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { ShoppingCart, Search, User, Menu, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,10 +20,25 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 
+const searchSchema = z.object({
+  q: z.string().min(1, "Enter a search term"),
+});
+
+type SearchForm = z.infer<typeof searchSchema>;
+
 export function SiteHeader(): React.ReactElement {
+  const router = useRouter();
+  const { register, handleSubmit } = useForm<SearchForm>({
+    resolver: zodResolver(searchSchema),
+    defaultValues: { q: "" },
+  });
   const totalItems = useCartStore((s) => s.totalItems());
   const openCart = useCartStore((s) => s.open);
   const wishlistCount = useWishlistStore((s) => s.items.length);
+
+  function onSearch(data: SearchForm) {
+    router.push(`/search?q=${encodeURIComponent(data.q.trim())}`);
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white">
@@ -56,16 +75,17 @@ export function SiteHeader(): React.ReactElement {
         </Link>
 
         {/* Search */}
-        <div className="hidden flex-1 md:flex">
+        <form onSubmit={handleSubmit(onSearch)} className="hidden flex-1 md:flex">
           <div className="relative w-full max-w-lg">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search products..."
               className="pl-9"
               type="search"
+              {...register("q")}
             />
           </div>
-        </div>
+        </form>
 
         {/* Nav links (desktop) */}
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
