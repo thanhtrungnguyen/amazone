@@ -105,16 +105,68 @@ const placeholderOrders: PlaceholderOrder[] = [
   },
 ];
 
+// ── Helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Generate a human-readable order number from a UUID and creation date.
+ * Format: AMZ-{year}-{first 4 hex chars of UUID uppercased}
+ */
+function generateOrderNumber(id: string, createdAt: Date): string {
+  const year = createdAt.getFullYear();
+  const shortId = id.replace(/-/g, "").slice(0, 4).toUpperCase();
+  return `AMZ-${year}-${shortId}`;
+}
+
 // ── Data fetching with fallback ─────────────────────────────────────
 
 async function getOrders(): Promise<PlaceholderOrder[]> {
   try {
-    // TODO: Replace with real data fetching from @amazone/orders
     const { auth } = await import("@/lib/auth");
-    await auth();
-    // When real DB is connected, fetch orders here
-    return placeholderOrders;
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return placeholderOrders;
+    }
+
+    const { db, orders } = await import("@amazone/db");
+    const { eq, desc } = await import("drizzle-orm");
+
+    const userOrders = await db.query.orders.findMany({
+      where: eq(orders.userId, session.user.id),
+      orderBy: [desc(orders.createdAt)],
+      with: {
+        items: {
+          with: { product: true },
+        },
+      },
+    });
+
+    if (userOrders.length === 0) {
+      return [];
+    }
+
+    return userOrders.map((order) => {
+      const itemsCount = order.items.reduce(
+        (sum, item) => sum + item.quantity,
+        0,
+      );
+
+      return {
+        id: order.id,
+        orderNumber: generateOrderNumber(order.id, order.createdAt),
+        status: order.status,
+        totalInCents: order.totalInCents,
+        itemsCount,
+        createdAt: order.createdAt.toISOString().split("T")[0] as string,
+        items: order.items.map((item) => ({
+          name: item.product?.name ?? "Unknown product",
+          quantity: item.quantity,
+          priceInCents: item.priceInCents,
+        })),
+      };
+    });
   } catch {
+    // DB unavailable — fall back to placeholder data
     return placeholderOrders;
   }
 }

@@ -13,5 +13,6 @@ export {
   getProduct,
   getProductBySlug,
   listProducts,
+  countProducts,
   deleteProduct,
 } from "./actions";

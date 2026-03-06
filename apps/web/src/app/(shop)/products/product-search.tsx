@@ -34,6 +34,8 @@ export function ProductSearch({
       } else {
         params.delete(key);
       }
+      // Reset cursor when filters change — the old cursor is invalid
+      params.delete("cursor");
       startTransition(() => {
         router.push(`/products?${params.toString()}`);
       });

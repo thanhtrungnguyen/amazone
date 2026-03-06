@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProductGridSkeleton, ProductCard, EmptyState } from "@amazone/shared-ui";
 import { Package } from "lucide-react";
 import { ProductSearch } from "./product-search";
+import { PaginationControls } from "@/components/pagination-controls";
 
 export const revalidate = 60;
 
@@ -11,6 +12,8 @@ export const metadata = {
   title: "Products — Amazone",
   description: "Browse our full product catalog",
 };
+
+const PRODUCTS_PER_PAGE = 20;
 
 // Placeholder data for development without DB
 interface PlaceholderProduct {
@@ -154,6 +157,7 @@ interface ProductsPageProps {
     search?: string;
     category?: string;
     sort?: string;
+    cursor?: string;
   }>;
 }
 
@@ -161,25 +165,39 @@ async function getProductsData(params: {
   search?: string;
   category?: string;
   sort?: string;
+  cursor?: string;
 }): Promise<{
   products: PlaceholderProduct[];
   categories: typeof placeholderCategories;
+  totalCount: number;
+  hasMore: boolean;
   fromDb: boolean;
 }> {
   try {
-    const { listProducts } = await import("@amazone/products");
+    const { listProducts, countProducts } = await import("@amazone/products");
     const { db } = await import("@amazone/db");
 
-    const [products, categories] = await Promise.all([
+    const sortBy = (params.sort as "price_asc" | "price_desc" | "newest" | "rating" | "name") || "newest";
+
+    const [rawProducts, totalCount, categories] = await Promise.all([
       listProducts({
         search: params.search,
         categoryId: params.category,
-        sortBy: (params.sort as "price_asc" | "price_desc" | "newest" | "rating" | "name") || "newest",
+        sortBy,
         isActive: true,
-        limit: 20,
+        cursor: params.cursor,
+        limit: PRODUCTS_PER_PAGE + 1, // Fetch one extra to detect hasMore
+      }),
+      countProducts({
+        search: params.search,
+        categoryId: params.category,
+        isActive: true,
       }),
       db.query.categories.findMany(),
     ]);
+
+    const hasMore = rawProducts.length > PRODUCTS_PER_PAGE;
+    const products = hasMore ? rawProducts.slice(0, PRODUCTS_PER_PAGE) : rawProducts;
 
     return {
       products: products.map((p) => ({
@@ -201,6 +219,8 @@ async function getProductsData(params: {
         name: c.name,
         slug: c.slug,
       })),
+      totalCount,
+      hasMore,
       fromDb: true,
     };
   } catch {
@@ -222,13 +242,31 @@ async function getProductsData(params: {
       filtered.sort((a, b) => b.avgRating - a.avgRating);
     }
 
-    return { products: filtered, categories: placeholderCategories, fromDb: false };
+    // Simulate cursor-based pagination for placeholder data
+    const totalCount = filtered.length;
+    if (params.cursor) {
+      const cursorIndex = filtered.findIndex((p) => p.id === params.cursor);
+      if (cursorIndex !== -1) {
+        filtered = filtered.slice(cursorIndex + 1);
+      }
+    }
+    const hasMore = filtered.length > PRODUCTS_PER_PAGE;
+    const products = hasMore ? filtered.slice(0, PRODUCTS_PER_PAGE) : filtered;
+
+    return {
+      products,
+      categories: placeholderCategories,
+      totalCount,
+      hasMore,
+      fromDb: false,
+    };
   }
 }
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const params = await searchParams;
-  const { products, categories, fromDb } = await getProductsData(params);
+  const { products, categories, totalCount, hasMore, fromDb } = await getProductsData(params);
+  const lastCursor = products.length > 0 ? products[products.length - 1].id : "";
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -237,7 +275,15 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         <div>
           <h1 className="text-3xl font-bold">Products</h1>
           <p className="text-muted-foreground">
-            {products.length} product{products.length !== 1 ? "s" : ""} found
+            {fromDb ? (
+              <>
+                Showing {products.length} of {totalCount} product{totalCount !== 1 ? "s" : ""}
+              </>
+            ) : (
+              <>
+                {products.length} product{products.length !== 1 ? "s" : ""} found
+              </>
+            )}
             {params.search ? ` for "${params.search}"` : ""}
           </p>
         </div>
@@ -285,21 +331,27 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       {/* Product grid */}
       <Suspense fallback={<ProductGridSkeleton count={12} />}>
         {products.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                name={product.name}
-                slug={product.slug}
-                priceInCents={product.price}
-                compareAtPriceInCents={product.compareAtPrice ?? undefined}
-                image={product.images?.[0] ?? null}
-                rating={product.avgRating}
-                reviewCount={product.reviewCount}
-                badge={product.isFeatured ? "Featured" : undefined}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {products.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  name={product.name}
+                  slug={product.slug}
+                  priceInCents={product.price}
+                  compareAtPriceInCents={product.compareAtPrice ?? undefined}
+                  image={product.images?.[0] ?? null}
+                  rating={product.avgRating}
+                  reviewCount={product.reviewCount}
+                  badge={product.isFeatured ? "Featured" : undefined}
+                />
+              ))}
+            </div>
+            <PaginationControls
+              hasMore={hasMore}
+              lastCursor={lastCursor}
+            />
+          </>
         ) : (
           <EmptyState
             icon={<Package className="h-6 w-6" />}

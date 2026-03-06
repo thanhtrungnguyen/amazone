@@ -33,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const searchSchema = z.object({
   q: z.string().min(1, "Enter a search term"),
@@ -69,7 +70,7 @@ export function SiteHeader(): React.ReactElement {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white">
+    <header className="sticky top-0 z-50 w-full border-b bg-white dark:bg-gray-950 dark:border-gray-800">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4">
         {/* Mobile menu */}
         <Sheet>
@@ -164,6 +165,9 @@ export function SiteHeader(): React.ReactElement {
           >
             <Search className="h-5 w-5" />
           </Button>
+
+          {/* Theme toggle */}
+          <ThemeToggle />
 
           {/* Wishlist */}
           <Button variant="ghost" size="icon" className="relative" asChild>
@@ -279,7 +283,7 @@ export function SiteHeader(): React.ReactElement {
 
       {/* Mobile search bar */}
       {mobileSearchOpen && (
-        <div className="border-b bg-white px-4 py-2 md:hidden">
+        <div className="border-b bg-white dark:bg-gray-950 dark:border-gray-800 px-4 py-2 md:hidden">
           <form onSubmit={handleMobileSubmit(onSearch)}>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

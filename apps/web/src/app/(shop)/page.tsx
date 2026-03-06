@@ -284,7 +284,7 @@ export default async function HomePage() {
           <Button
             size="lg"
             variant="secondary"
-            className="bg-white text-orange-600 hover:bg-white/90"
+            className="bg-white text-orange-600 hover:bg-white/90 dark:bg-white dark:text-orange-600 dark:hover:bg-white/90"
             asChild
           >
             <Link href="/deals">Shop Deals</Link>

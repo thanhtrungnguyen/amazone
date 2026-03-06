@@ -28,7 +28,7 @@ const footerLinks = {
 
 export function SiteFooter(): React.ReactElement {
   return (
-    <footer className="mt-auto border-t bg-gray-50">
+    <footer className="mt-auto border-t bg-gray-50 dark:bg-gray-950">
       <div className="mx-auto max-w-7xl px-4 py-12">
         <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-4">
           {Object.entries(footerLinks).map(([title, links]) => (

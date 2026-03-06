@@ -9,6 +9,7 @@ import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
+import { sendWelcome } from "./actions";
 
 const signUpSchema = z.object({
   name: z.string().min(1, "Full name is required").max(255),
@@ -53,6 +54,9 @@ export function SignUpForm(): React.ReactElement {
         email: data.email,
         hashedPassword,
       });
+
+      // Send welcome email (fire-and-forget)
+      sendWelcome({ to: data.email, name: data.name });
 
       // Auto sign-in after registration
       const result = await signIn("credentials", {

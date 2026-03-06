@@ -240,7 +240,7 @@ export default async function DealsPage(): Promise<React.ReactElement> {
         <Card className="overflow-hidden">
           <div className="grid gap-6 md:grid-cols-2">
             {/* Product image placeholder */}
-            <div className="flex items-center justify-center bg-gray-100 p-8">
+            <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 p-8">
               {dealOfTheDay.image ? (
                 <Image
                   src={dealOfTheDay.image}
@@ -358,10 +358,10 @@ export default async function DealsPage(): Promise<React.ReactElement> {
             <Link
               key={deal.slug}
               href={`/products/${deal.slug}`}
-              className="group flex flex-col overflow-hidden rounded-lg border bg-white transition-shadow hover:shadow-md"
+              className="group flex flex-col overflow-hidden rounded-lg border bg-white dark:bg-gray-900 transition-shadow hover:shadow-md"
             >
               {/* Image */}
-              <div className="relative aspect-square overflow-hidden bg-gray-100">
+              <div className="relative aspect-square overflow-hidden bg-gray-100 dark:bg-gray-800">
                 {deal.image ? (
                   <Image
                     src={deal.image}
@@ -398,15 +398,15 @@ export default async function DealsPage(): Promise<React.ReactElement> {
 
               {/* Content */}
               <div className="flex flex-1 flex-col gap-2 p-3">
-                <h3 className="line-clamp-2 text-sm font-medium text-gray-900 group-hover:text-blue-600">
+                <h3 className="line-clamp-2 text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-600">
                   {deal.name}
                 </h3>
 
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-lg font-bold text-gray-900">
+                  <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
                     {formatPrice(deal.price)}
                   </span>
-                  <span className="text-sm text-gray-500 line-through">
+                  <span className="text-sm text-gray-500 dark:text-gray-400 line-through">
                     {formatPrice(deal.compareAtPrice)}
                   </span>
                 </div>
@@ -417,7 +417,7 @@ export default async function DealsPage(): Promise<React.ReactElement> {
                     <span>{deal.claimedPercent}% claimed</span>
                   </div>
                   <div
-                    className="h-2 w-full overflow-hidden rounded-full bg-gray-200"
+                    className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
                     role="progressbar"
                     aria-valuenow={deal.claimedPercent}
                     aria-valuemin={0}

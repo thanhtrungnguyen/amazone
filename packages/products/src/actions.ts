@@ -1,7 +1,7 @@
 "use server";
 
 import { db, products } from "@amazone/db";
-import { eq, and, gte, lte, ilike, desc, asc, gt, lt } from "drizzle-orm";
+import { eq, and, gte, lte, ilike, desc, asc, gt, lt, count } from "drizzle-orm";
 import {
   createProductSchema,
   updateProductSchema,
@@ -130,6 +130,41 @@ export async function listProducts(
       category: true,
     },
   });
+}
+
+export async function countProducts(
+  input: Omit<ProductFilterInput, "cursor" | "limit" | "sortBy">
+): Promise<number> {
+  const filters = productFilterSchema
+    .omit({ cursor: true, limit: true, sortBy: true })
+    .parse(input);
+  const conditions = [];
+
+  if (filters.categoryId) {
+    conditions.push(eq(products.categoryId, filters.categoryId));
+  }
+  if (filters.minPrice !== undefined) {
+    conditions.push(gte(products.price, filters.minPrice));
+  }
+  if (filters.maxPrice !== undefined) {
+    conditions.push(lte(products.price, filters.maxPrice));
+  }
+  if (filters.search) {
+    conditions.push(ilike(products.name, `%${filters.search}%`));
+  }
+  if (filters.isActive !== undefined) {
+    conditions.push(eq(products.isActive, filters.isActive));
+  }
+  if (filters.isFeatured !== undefined) {
+    conditions.push(eq(products.isFeatured, filters.isFeatured));
+  }
+
+  const [result] = await db
+    .select({ count: count() })
+    .from(products)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+  return result?.count ?? 0;
 }
 
 export async function deleteProduct(

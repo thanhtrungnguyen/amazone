@@ -13,12 +13,16 @@ import {
 const USER_IDS = {
   admin: "a0000000-0000-4000-8000-000000000001",
   seller: "a0000000-0000-4000-8000-000000000002",
+  customer: "a0000000-0000-4000-8000-000000000003",
 } as const;
 
 const CATEGORY_IDS = {
   electronics: "c0000000-0000-4000-8000-000000000001",
   clothing: "c0000000-0000-4000-8000-000000000002",
   homeKitchen: "c0000000-0000-4000-8000-000000000003",
+  books: "c0000000-0000-4000-8000-000000000004",
+  sports: "c0000000-0000-4000-8000-000000000005",
+  beauty: "c0000000-0000-4000-8000-000000000006",
 } as const;
 
 const PRODUCT_IDS = {
@@ -66,6 +70,15 @@ const seedUsers = [
     createdAt: new Date("2025-02-01T12:00:00Z"),
     updatedAt: new Date("2025-02-01T12:00:00Z"),
   },
+  {
+    id: USER_IDS.customer,
+    name: "Carol Customer",
+    email: "carol@amazone.dev",
+    hashedPassword: PLACEHOLDER_PASSWORD_HASH,
+    role: "customer" as const,
+    createdAt: new Date("2025-02-15T09:00:00Z"),
+    updatedAt: new Date("2025-02-15T09:00:00Z"),
+  },
 ];
 
 const seedCategories = [
@@ -96,6 +109,33 @@ const seedCategories = [
     createdAt: new Date("2025-01-10T08:00:00Z"),
     updatedAt: new Date("2025-01-10T08:00:00Z"),
   },
+  {
+    id: CATEGORY_IDS.books,
+    name: "Books",
+    slug: "books",
+    description:
+      "Fiction, non-fiction, textbooks, and more. From bestsellers to hidden gems.",
+    createdAt: new Date("2025-01-10T08:00:00Z"),
+    updatedAt: new Date("2025-01-10T08:00:00Z"),
+  },
+  {
+    id: CATEGORY_IDS.sports,
+    name: "Sports & Outdoors",
+    slug: "sports-outdoors",
+    description:
+      "Gear and equipment for fitness, outdoor adventures, and team sports.",
+    createdAt: new Date("2025-01-10T08:00:00Z"),
+    updatedAt: new Date("2025-01-10T08:00:00Z"),
+  },
+  {
+    id: CATEGORY_IDS.beauty,
+    name: "Beauty & Personal Care",
+    slug: "beauty-personal-care",
+    description:
+      "Skincare, makeup, haircare, and grooming essentials.",
+    createdAt: new Date("2025-01-10T08:00:00Z"),
+    updatedAt: new Date("2025-01-10T08:00:00Z"),
+  },
 ];
 
 const seedProducts = [
@@ -108,6 +148,7 @@ const seedProducts = [
       "Active noise-cancelling over-ear headphones with 30-hour battery life and premium drivers for studio-quality sound.",
     price: 7999,
     compareAtPrice: 12999,
+    images: ["https://picsum.photos/seed/headphones/600/600"],
     categoryId: CATEGORY_IDS.electronics,
     sellerId: USER_IDS.seller,
     stock: 150,
@@ -126,6 +167,7 @@ const seedProducts = [
       "Compact GaN charger with dual USB-C ports. Fast-charges laptops, phones, and tablets simultaneously.",
     price: 3499,
     compareAtPrice: 4999,
+    images: ["https://picsum.photos/seed/charger/600/600"],
     categoryId: CATEGORY_IDS.electronics,
     sellerId: USER_IDS.seller,
     stock: 320,
@@ -144,6 +186,7 @@ const seedProducts = [
       "Tenkeyless mechanical keyboard with hot-swappable switches, RGB backlighting, and a machined aluminum frame.",
     price: 12900,
     compareAtPrice: null,
+    images: ["https://picsum.photos/seed/keyboard/600/600"],
     categoryId: CATEGORY_IDS.electronics,
     sellerId: USER_IDS.admin,
     stock: 75,
@@ -162,6 +205,7 @@ const seedProducts = [
       "Fitness-focused smartwatch with heart-rate monitor, GPS, sleep tracking, and 7-day battery life. Water-resistant to 50 meters.",
     price: 19900,
     compareAtPrice: 24900,
+    images: ["https://picsum.photos/seed/smartwatch/600/600"],
     categoryId: CATEGORY_IDS.electronics,
     sellerId: USER_IDS.seller,
     stock: 60,
@@ -181,6 +225,7 @@ const seedProducts = [
       "100% organic cotton t-shirt with a relaxed fit. Pre-shrunk fabric and reinforced collar that holds its shape wash after wash.",
     price: 1999,
     compareAtPrice: 2999,
+    images: ["https://picsum.photos/seed/tshirt/600/600"],
     categoryId: CATEGORY_IDS.clothing,
     sellerId: USER_IDS.seller,
     stock: 500,
@@ -199,6 +244,7 @@ const seedProducts = [
       "Classic denim jacket crafted from heavyweight selvedge denim. Features copper hardware and a slim-tailored silhouette.",
     price: 8900,
     compareAtPrice: null,
+    images: ["https://picsum.photos/seed/denim-jacket/600/600"],
     categoryId: CATEGORY_IDS.clothing,
     sellerId: USER_IDS.admin,
     stock: 40,
@@ -217,6 +263,7 @@ const seedProducts = [
       "Lightweight running shoes with responsive foam midsole and engineered mesh upper for breathability. Ideal for daily training.",
     price: 11900,
     compareAtPrice: 14900,
+    images: ["https://picsum.photos/seed/running-shoes/600/600"],
     categoryId: CATEGORY_IDS.clothing,
     sellerId: USER_IDS.seller,
     stock: 200,
@@ -236,6 +283,7 @@ const seedProducts = [
       "Pre-seasoned 12-inch cast iron skillet with helper handle. Oven-safe to 500 degrees F, suitable for stovetop, grill, and campfire.",
     price: 4499,
     compareAtPrice: 5999,
+    images: ["https://picsum.photos/seed/cast-iron/600/600"],
     categoryId: CATEGORY_IDS.homeKitchen,
     sellerId: USER_IDS.admin,
     stock: 90,
@@ -254,6 +302,7 @@ const seedProducts = [
       "Conical burr grinder with 40 grind settings from espresso to French press. Low-noise motor and anti-static technology.",
     price: 6999,
     compareAtPrice: null,
+    images: ["https://picsum.photos/seed/coffee-grinder/600/600"],
     categoryId: CATEGORY_IDS.homeKitchen,
     sellerId: USER_IDS.seller,
     stock: 110,
@@ -272,6 +321,7 @@ const seedProducts = [
       "Five-tier bamboo bookshelf with adjustable shelves. Sustainable material, easy assembly, and a modern minimalist look.",
     price: 15900,
     compareAtPrice: 19900,
+    images: ["https://picsum.photos/seed/bookshelf/600/600"],
     categoryId: CATEGORY_IDS.homeKitchen,
     sellerId: USER_IDS.admin,
     stock: 30,
