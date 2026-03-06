@@ -145,31 +145,107 @@ The header, footer, and sidebar navigation link to pages that do **not** exist:
 
 ---
 
-## 10. Summary — Priority Tasks
+## 10. Server Actions Never Called from UI
 
-### Critical (Security / Broken)
-1. Implement bcrypt password comparison in `auth.ts`
-2. Wire checkout form to real Stripe session
+Several domain packages have fully implemented server actions that are **never invoked** from the frontend:
 
-### High Priority (Core Features)
-3. Create `/orders` page (customer order history)
-4. Create `/wishlist` page and DB schema
-5. Add unit tests for all domain packages
-6. Wire pagination controls on product listing
-7. Add inventory check at checkout
+| Package | Action | Issue |
+|---------|--------|-------|
+| `@amazone/cart` | `addToCart`, `removeFromCart`, `updateCartItem`, `getCart`, `clearCart` | Cart is **client-only** via Zustand — never syncs to DB |
+| `@amazone/checkout` | `createCheckoutSession` | Checkout form uses `setTimeout` stub instead |
+| `@amazone/reviews` | `createReview` | No review submission form exists in the UI |
+| `@amazone/users` | `createUser` | Sign-up page form doesn't call this action |
 
-### Medium Priority (Polish)
-8. Implement fuzzy search
-9. Create admin sub-pages (orders, users, settings)
-10. Create dashboard/seller settings page
-11. Add ISR with `revalidatePath` for product pages
-12. Add `error.tsx` and `loading.tsx` for remaining routes
-13. Add OAuth providers (Google)
-14. Create order confirmation page
+**Impact:** Cart data is lost on page refresh. Users can't create reviews. Sign-up doesn't actually create users.
 
-### Low Priority (Nice to Have)
-15. Add password reset flow
-16. Add email verification
-17. Prefetch product pages on hover
-18. Replace placeholder data with proper empty states
-19. Add user profile/settings page
+---
+
+## 11. Additional Missing Pages (Dead Links)
+
+Beyond the nav links in section 3, the footer and pages reference more routes that don't exist:
+
+| Link | Referenced In | Status |
+|------|--------------|--------|
+| `/categories` | `site-footer.tsx` | **Missing** — no category browsing page |
+| `/deals` | `site-footer.tsx` | **Missing** — no deals/promotions page |
+| `/forgot-password` | `sign-in/page.tsx` | **Missing** — no password reset flow |
+| `/help` | `site-footer.tsx` | **Missing** — no help center |
+| `/returns` | `site-footer.tsx` | **Missing** — no returns policy page |
+| `/contact` | `site-footer.tsx` | **Missing** — no contact form |
+| `/privacy` | `site-footer.tsx` | **Missing** — no privacy policy |
+| `/terms` | `site-footer.tsx` | **Missing** — no terms of service |
+| `/seller-guidelines` | `site-footer.tsx` | **Missing** — no seller documentation |
+| `/admin/users` | `admin/layout.tsx` | **Missing** — no user management |
+| `/admin/products` | `admin/layout.tsx` | **Missing** — no admin product management |
+| `/admin/moderation` | `admin/layout.tsx` | **Missing** — no content moderation |
+| `/dashboard/products/new` | `dashboard/products/page.tsx` | **Missing** — no product creation form |
+| `/dashboard/analytics` | `dashboard/layout.tsx` | **Missing** — no analytics page |
+
+---
+
+## 12. Dashboard Stats Are Hardcoded
+
+- **Seller Dashboard** (`apps/web/src/app/dashboard/page.tsx`): Revenue, orders, products, conversion rate all show `0` — no real DB queries.
+- **Admin Dashboard** (`apps/web/src/app/admin/page.tsx`): User count, product count, order count, pending reviews all show `0`.
+- **Dashboard Orders** (`apps/web/src/app/dashboard/orders/page.tsx`): `itemCount` hardcoded to `0`.
+
+---
+
+## 13. Cart Does Not Persist
+
+- **File:** `apps/web/src/stores/cart-store.ts`
+- Zustand store is purely in-memory — no `localStorage`, no `IndexedDB`, no server sync.
+- Cart is lost on page refresh or navigation to a new tab.
+- **Fix:** Add Zustand `persist` middleware for localStorage, and sync with `@amazone/cart` server actions for logged-in users.
+
+---
+
+## 14. Missing Validations & Security
+
+| Issue | Location | Description |
+|-------|----------|-------------|
+| No input sanitization | Reviews, product descriptions | User-generated content not sanitized for XSS |
+| No inventory check at checkout | `checkout-form.tsx` | Can order out-of-stock items |
+| No rate limiting | API routes, server actions | No protection against abuse |
+| No RBAC enforcement | Admin/dashboard routes | No middleware checking user roles |
+| No duplicate review prevention | Product reviews UI | Schema has unique index but UI doesn't prevent it |
+
+---
+
+## 15. Summary — Priority Tasks
+
+### P0 — Critical (Security / Broken)
+1. **Implement bcrypt password comparison** in `auth.ts` — currently any password works
+2. **Wire sign-up form** to `createUser` server action — sign-up doesn't create users
+3. **Wire checkout form** to real `createCheckoutSession` — checkout is a no-op
+4. **Sync cart to database** — connect Zustand store to `@amazone/cart` server actions
+
+### P1 — High Priority (Core Features)
+5. Create `/orders` page (customer order history)
+6. Add review submission form on product detail pages
+7. Add unit tests for all domain packages (zero exist today)
+8. Wire pagination controls on product listing page
+9. Add inventory check at checkout
+10. Create `/wishlist` page and DB schema
+11. Wire dashboard stats to real DB queries
+
+### P2 — Medium Priority (Polish)
+12. Implement fuzzy search (pg_trgm or Fuse.js)
+13. Create admin sub-pages (orders, users, products, moderation, settings)
+14. Create `/dashboard/products/new` product creation form
+15. Add ISR with `revalidatePath` for product pages
+16. Add `error.tsx` and `loading.tsx` for remaining routes
+17. Add OAuth providers (Google)
+18. Create order confirmation page
+19. Add RBAC middleware for admin/dashboard routes
+20. Add cart persistence (localStorage + server sync)
+
+### P3 — Low Priority (Nice to Have)
+21. Add password reset flow (`/forgot-password`)
+22. Add email verification
+23. Prefetch product pages on hover
+24. Replace placeholder data with proper empty states
+25. Create static pages: `/privacy`, `/terms`, `/returns`, `/contact`, `/help`
+26. Create `/dashboard/analytics` page
+27. Create `/categories` and `/deals` pages
+28. Add user profile/settings page
