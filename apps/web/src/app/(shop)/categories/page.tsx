@@ -7,6 +7,8 @@ import {
 } from "@/components/ui/card";
 import { Layers } from "lucide-react";
 
+export const revalidate = 300;
+
 export const metadata = {
   title: "Categories — Amazone",
   description: "Browse products by category.",

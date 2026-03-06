@@ -7,9 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { SignUpForm } from "./sign-up-form";
 
 export const metadata = {
   title: "Sign Up — Amazone",
@@ -28,48 +27,7 @@ export default function SignUpPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="name" className="text-sm font-medium">
-              Full Name
-            </label>
-            <Input
-              id="name"
-              name="name"
-              type="text"
-              placeholder="John Doe"
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="password" className="text-sm font-medium">
-              Password
-            </label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="At least 8 characters"
-              minLength={8}
-              required
-            />
-          </div>
-          <Button type="submit" className="w-full">
-            Create Account
-          </Button>
-        </form>
+        <SignUpForm />
       </CardContent>
       <Separator />
       <CardFooter className="justify-center pt-6">

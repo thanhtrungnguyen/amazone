@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ShoppingCart, Trash2 } from "lucide-react";
 import {
@@ -49,9 +50,11 @@ export function CartDrawer(): React.ReactElement {
                     {/* Product image */}
                     <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border bg-gray-100">
                       {item.image ? (
-                        <img
+                        <Image
                           src={item.image}
                           alt={item.name}
+                          width={80}
+                          height={80}
                           className="h-full w-full object-cover"
                         />
                       ) : (

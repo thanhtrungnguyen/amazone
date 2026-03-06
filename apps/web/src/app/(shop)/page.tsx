@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +26,34 @@ import {
   RotateCcw,
   Headphones,
 } from "lucide-react";
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://amazone.com";
+
+export const revalidate = 120;
+
+export const metadata: Metadata = {
+  title: "Amazone — Your One-Stop E-Commerce Platform",
+  description:
+    "Shop millions of products with fast delivery, secure payments, and great prices. Electronics, clothing, home goods, and more.",
+  alternates: {
+    canonical: BASE_URL,
+  },
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Amazone",
+  url: BASE_URL,
+  potentialAction: {
+    "@type": "SearchAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: `${BASE_URL}/products?search={search_term_string}`,
+    },
+    "query-input": "required name=search_term_string",
+  },
+};
 
 const features = [
   {
@@ -147,6 +176,11 @@ export default async function HomePage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
+
       {/* Hero */}
       <section className="flex flex-col items-center gap-6 px-6 py-24 text-center">
         <Badge variant="secondary" className="text-sm">

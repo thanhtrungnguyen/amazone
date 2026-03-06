@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -262,9 +263,11 @@ export function CheckoutForm(): React.ReactElement {
                     <div key={item.id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
                       <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border bg-gray-100">
                         {item.image ? (
-                          <img
+                          <Image
                             src={item.image}
                             alt={item.name}
+                            width={64}
+                            height={64}
                             className="h-full w-full object-cover"
                           />
                         ) : (

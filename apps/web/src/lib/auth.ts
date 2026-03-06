@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
 
 /**
@@ -22,17 +23,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        // Dynamic import keeps @amazone/db out of the module graph
-        // until an actual sign-in attempt occurs
         const { getUserByEmail } = await import("@amazone/users");
         const user = await getUserByEmail(credentials.email as string);
         if (!user || !user.hashedPassword) {
           return null;
         }
 
-        // TODO: Replace with proper bcrypt comparison
-        // const isValid = await bcrypt.compare(credentials.password, user.hashedPassword);
-        // if (!isValid) return null;
+        const isValid = await bcrypt.compare(
+          credentials.password as string,
+          user.hashedPassword,
+        );
+        if (!isValid) return null;
 
         return {
           id: user.id,

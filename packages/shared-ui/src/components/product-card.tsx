@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { formatPrice } from "@amazone/shared-utils";
 import { RatingStars } from "./rating-stars";
 
@@ -39,11 +40,12 @@ export function ProductCard({
       {/* Image */}
       <div className="relative aspect-square overflow-hidden bg-gray-100">
         {image ? (
-          <img
+          <Image
             src={image}
             alt={name}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-            loading="lazy"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover transition-transform group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-gray-400">

@@ -1,17 +1,31 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ShoppingCart, Search, User, Menu, Heart } from "lucide-react";
+import {
+  ShoppingCart,
+  Search,
+  User,
+  Menu,
+  Heart,
+  LogOut,
+  LayoutDashboard,
+  Settings,
+  Package,
+  UserCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -28,7 +42,16 @@ type SearchForm = z.infer<typeof searchSchema>;
 
 export function SiteHeader(): React.ReactElement {
   const router = useRouter();
+  const { data: session, status } = useSession();
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { register, handleSubmit } = useForm<SearchForm>({
+    resolver: zodResolver(searchSchema),
+    defaultValues: { q: "" },
+  });
+  const {
+    register: registerMobile,
+    handleSubmit: handleMobileSubmit,
+  } = useForm<SearchForm>({
     resolver: zodResolver(searchSchema),
     defaultValues: { q: "" },
   });
@@ -36,8 +59,13 @@ export function SiteHeader(): React.ReactElement {
   const openCart = useCartStore((s) => s.open);
   const wishlistCount = useWishlistStore((s) => s.items.length);
 
+  const isAuthenticated = status === "authenticated";
+  const userName = session?.user?.name;
+  const userRole = (session?.user as { role?: string })?.role;
+
   function onSearch(data: SearchForm) {
     router.push(`/search?q=${encodeURIComponent(data.q.trim())}`);
+    setMobileSearchOpen(false);
   }
 
   return (
@@ -65,6 +93,20 @@ export function SiteHeader(): React.ReactElement {
               <Link href="/deals" className="text-lg font-medium">
                 Deals
               </Link>
+              {isAuthenticated && (
+                <>
+                  <div className="my-2 h-px bg-border" />
+                  <Link href="/profile" className="text-lg font-medium">
+                    My Profile
+                  </Link>
+                  <Link href="/profile/orders" className="text-lg font-medium">
+                    My Orders
+                  </Link>
+                  <Link href="/dashboard" className="text-lg font-medium">
+                    Seller Dashboard
+                  </Link>
+                </>
+              )}
             </nav>
           </SheetContent>
         </Sheet>
@@ -111,10 +153,16 @@ export function SiteHeader(): React.ReactElement {
 
         {/* Actions */}
         <div className="ml-auto flex items-center gap-2">
-          {/* Mobile search */}
-          <Button variant="ghost" size="icon" className="md:hidden">
+          {/* Mobile search toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileSearchOpen((prev) => !prev)}
+            aria-expanded={mobileSearchOpen}
+            aria-label="Toggle search"
+          >
             <Search className="h-5 w-5" />
-            <span className="sr-only">Search</span>
           </Button>
 
           {/* Wishlist */}
@@ -141,29 +189,73 @@ export function SiteHeader(): React.ReactElement {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem asChild>
-                <Link href="/sign-in">Sign In</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/sign-up">Create Account</Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/profile">My Profile</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/profile/orders">My Orders</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/wishlist">Wishlist</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/settings">Settings</Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard">Seller Dashboard</Link>
-              </DropdownMenuItem>
+              {isAuthenticated ? (
+                <>
+                  <DropdownMenuLabel className="font-normal">
+                    <p className="text-sm font-medium">{userName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {session.user?.email}
+                    </p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="flex items-center gap-2">
+                      <UserCircle className="h-4 w-4" />
+                      My Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile/orders" className="flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      My Orders
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/wishlist" className="flex items-center gap-2">
+                      <Heart className="h-4 w-4" />
+                      Wishlist
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="flex items-center gap-2">
+                      <LayoutDashboard className="h-4 w-4" />
+                      Seller Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  {userRole === "admin" && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin" className="flex items-center gap-2">
+                        <Settings className="h-4 w-4" />
+                        Admin Panel
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                    className="flex items-center gap-2 text-red-600 focus:text-red-600"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/sign-in">Sign In</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/sign-up">Create Account</Link>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -184,6 +276,24 @@ export function SiteHeader(): React.ReactElement {
           </Button>
         </div>
       </div>
+
+      {/* Mobile search bar */}
+      {mobileSearchOpen && (
+        <div className="border-b bg-white px-4 py-2 md:hidden">
+          <form onSubmit={handleMobileSubmit(onSearch)}>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search products..."
+                className="pl-9"
+                type="search"
+                autoFocus
+                {...registerMobile("q")}
+              />
+            </div>
+          </form>
+        </div>
+      )}
     </header>
   );
 }

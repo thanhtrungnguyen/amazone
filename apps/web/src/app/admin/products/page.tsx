@@ -24,23 +24,25 @@ export const metadata = {
 // Placeholder data
 // ---------------------------------------------------------------------------
 
-type ProductStatus = "active" | "pending" | "rejected";
+type ProductStatus = "active" | "inactive";
 
 interface AdminProduct {
   id: string;
   name: string;
   seller: string;
+  category: string | null;
   priceCents: number;
   stock: number;
   status: ProductStatus;
   createdDate: string;
 }
 
-const products: AdminProduct[] = [
+const placeholderProducts: AdminProduct[] = [
   {
     id: "prod-001",
     name: 'Ultra HD Monitor 27"',
     seller: "Alice Johnson",
+    category: "Electronics",
     priceCents: 34999,
     stock: 142,
     status: "active",
@@ -50,6 +52,7 @@ const products: AdminProduct[] = [
     id: "prod-002",
     name: "Wireless Mechanical Keyboard",
     seller: "Alice Johnson",
+    category: "Electronics",
     priceCents: 12999,
     stock: 305,
     status: "active",
@@ -59,15 +62,17 @@ const products: AdminProduct[] = [
     id: "prod-003",
     name: "Noise Cancelling Headphones Pro",
     seller: "Charlie Nguyen",
+    category: "Electronics",
     priceCents: 24900,
     stock: 58,
-    status: "pending",
+    status: "active",
     createdDate: "2026-02-20",
   },
   {
     id: "prod-004",
     name: "Ergonomic Office Chair",
     seller: "Charlie Nguyen",
+    category: "Home & Kitchen",
     priceCents: 49999,
     stock: 23,
     status: "active",
@@ -77,21 +82,63 @@ const products: AdminProduct[] = [
     id: "prod-005",
     name: "Counterfeit Designer Watch",
     seller: "Bob Smith",
+    category: null,
     priceCents: 9999,
     stock: 0,
-    status: "rejected",
+    status: "inactive",
     createdDate: "2026-03-01",
   },
   {
     id: "prod-006",
     name: "USB-C Hub 7-in-1",
     seller: "Alice Johnson",
+    category: "Electronics",
     priceCents: 3999,
     stock: 720,
     status: "active",
     createdDate: "2026-02-28",
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Data fetcher
+// ---------------------------------------------------------------------------
+
+async function getProducts(): Promise<AdminProduct[]> {
+  try {
+    const { db, products, users, categories } = await import("@amazone/db");
+    const { desc, eq } = await import("drizzle-orm");
+
+    const rows = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        seller: users.name,
+        category: categories.name,
+        priceCents: products.price,
+        stock: products.stock,
+        isActive: products.isActive,
+        createdDate: products.createdAt,
+      })
+      .from(products)
+      .innerJoin(users, eq(products.sellerId, users.id))
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .orderBy(desc(products.createdAt));
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      seller: row.seller,
+      category: row.category,
+      priceCents: row.priceCents,
+      stock: row.stock,
+      status: row.isActive ? ("active" as const) : ("inactive" as const),
+      createdDate: row.createdDate.toISOString().slice(0, 10),
+    }));
+  } catch {
+    return placeholderProducts;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -101,9 +148,7 @@ function getStatusBadgeClasses(status: ProductStatus): string {
   switch (status) {
     case "active":
       return "bg-green-100 text-green-800 border-green-200";
-    case "pending":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
-    case "rejected":
+    case "inactive":
       return "bg-red-100 text-red-800 border-red-200";
   }
 }
@@ -112,7 +157,9 @@ function getStatusBadgeClasses(status: ProductStatus): string {
 // Page component
 // ---------------------------------------------------------------------------
 
-export default function AdminProductsPage(): React.ReactElement {
+export default async function AdminProductsPage(): Promise<React.ReactElement> {
+  const products = await getProducts();
+
   return (
     <div>
       {/* Header */}
@@ -137,6 +184,7 @@ export default function AdminProductsPage(): React.ReactElement {
               <TableRow>
                 <TableHead>Product Name</TableHead>
                 <TableHead>Seller</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
                 <TableHead>Status</TableHead>
@@ -150,6 +198,9 @@ export default function AdminProductsPage(): React.ReactElement {
                     {product.name}
                   </TableCell>
                   <TableCell>{product.seller}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {product.category ?? "Uncategorized"}
+                  </TableCell>
                   <TableCell className="text-right">
                     {formatPrice(product.priceCents)}
                   </TableCell>

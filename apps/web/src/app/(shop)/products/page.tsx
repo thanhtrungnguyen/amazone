@@ -5,6 +5,8 @@ import { ProductGridSkeleton, ProductCard, EmptyState } from "@amazone/shared-ui
 import { Package } from "lucide-react";
 import { ProductSearch } from "./product-search";
 
+export const revalidate = 60;
+
 export const metadata = {
   title: "Products — Amazone",
   description: "Browse our full product catalog",

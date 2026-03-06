@@ -3,6 +3,7 @@ import { Separator } from "@/components/ui/separator";
 import { RatingStars } from "@amazone/shared-ui";
 import { RATING_MAX } from "@amazone/shared-utils";
 import { CheckCircle, User } from "lucide-react";
+import { ReviewForm } from "./review-form";
 
 interface ReviewUser {
   id: string;
@@ -152,17 +153,23 @@ export async function ProductReviews({
 
   if (total === 0) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-lg font-medium">No reviews yet</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Be the first to review this product.
-        </p>
+      <div className="space-y-6">
+        <ReviewForm productId={productId} />
+        <div className="py-12 text-center">
+          <p className="text-lg font-medium">No reviews yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Be the first to review this product.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
+      {/* Review Form */}
+      <ReviewForm productId={productId} />
+
       {/* Rating Summary */}
       <div className="flex flex-col gap-6 sm:flex-row sm:gap-12">
         {/* Average rating */}

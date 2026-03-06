@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
     "@amazone/shared-ui",
     "@amazone/shared-utils",
   ],
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "**" },
+    ],
+  },
   output: "standalone",
   serverExternalPackages: [
     "postgres",

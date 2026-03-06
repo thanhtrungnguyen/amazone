@@ -24,10 +24,10 @@ export const metadata = {
 };
 
 // ---------------------------------------------------------------------------
-// Placeholder data -- will be replaced with real DB queries
+// Placeholder data -- fallback when DB is unavailable
 // ---------------------------------------------------------------------------
 
-const stats = {
+const placeholderStats = {
   totalUsers: 1_284,
   totalProducts: 3_519,
   totalOrders: 8_742,
@@ -42,7 +42,7 @@ interface RecentOrder {
   date: string;
 }
 
-const recentOrders: RecentOrder[] = [
+const placeholderRecentOrders: RecentOrder[] = [
   {
     id: "ORD-9281",
     customer: "Alice Johnson",
@@ -81,41 +81,110 @@ const recentOrders: RecentOrder[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Stat card config
+// Data fetchers
 // ---------------------------------------------------------------------------
 
-const statCards = [
-  {
-    label: "Total Users",
-    value: stats.totalUsers.toLocaleString(),
-    icon: Users,
-    description: "+12% from last month",
-  },
-  {
-    label: "Total Products",
-    value: stats.totalProducts.toLocaleString(),
-    icon: Package,
-    description: "+48 new this week",
-  },
-  {
-    label: "Total Orders",
-    value: stats.totalOrders.toLocaleString(),
-    icon: ShoppingCart,
-    description: "+5.2% from last month",
-  },
-  {
-    label: "Total Revenue",
-    value: formatPrice(stats.totalRevenueCents),
-    icon: DollarSign,
-    description: "+8.1% from last month",
-  },
-] as const;
+interface DashboardStats {
+  totalUsers: number;
+  totalProducts: number;
+  totalOrders: number;
+  totalRevenueCents: number;
+}
+
+async function getStats(): Promise<DashboardStats> {
+  try {
+    const { db, users, products, orders } = await import("@amazone/db");
+    const { sql } = await import("drizzle-orm");
+
+    const [[userCount], [productCount], [orderStats]] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(users),
+      db.select({ count: sql<number>`count(*)::int` }).from(products),
+      db
+        .select({
+          count: sql<number>`count(*)::int`,
+          revenue: sql<number>`coalesce(sum(${orders.totalInCents}), 0)::int`,
+        })
+        .from(orders),
+    ]);
+
+    return {
+      totalUsers: userCount?.count ?? 0,
+      totalProducts: productCount?.count ?? 0,
+      totalOrders: orderStats?.count ?? 0,
+      totalRevenueCents: orderStats?.revenue ?? 0,
+    };
+  } catch {
+    return placeholderStats;
+  }
+}
+
+async function getRecentOrders(): Promise<RecentOrder[]> {
+  try {
+    const { db, orders, users } = await import("@amazone/db");
+    const { desc, eq } = await import("drizzle-orm");
+
+    const rows = await db
+      .select({
+        id: orders.id,
+        customer: users.name,
+        totalCents: orders.totalInCents,
+        status: orders.status,
+        date: orders.createdAt,
+      })
+      .from(orders)
+      .innerJoin(users, eq(orders.userId, users.id))
+      .orderBy(desc(orders.createdAt))
+      .limit(5);
+
+    return rows.map((row) => ({
+      id: row.id.slice(0, 8).toUpperCase(),
+      customer: row.customer,
+      totalCents: row.totalCents,
+      status: row.status as OrderStatus,
+      date: row.date.toISOString().slice(0, 10),
+    }));
+  } catch {
+    return placeholderRecentOrders;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Page component
 // ---------------------------------------------------------------------------
 
-export default function AdminDashboardPage(): React.ReactElement {
+export default async function AdminDashboardPage(): Promise<React.ReactElement> {
+  const [stats, recentOrders] = await Promise.all([
+    getStats(),
+    getRecentOrders(),
+  ]);
+
+  const statCards = [
+    {
+      label: "Total Users",
+      value: stats.totalUsers.toLocaleString(),
+      icon: Users,
+      description: "Registered accounts",
+    },
+    {
+      label: "Total Products",
+      value: stats.totalProducts.toLocaleString(),
+      icon: Package,
+      description: "Listed products",
+    },
+    {
+      label: "Total Orders",
+      value: stats.totalOrders.toLocaleString(),
+      icon: ShoppingCart,
+      description: "All-time orders",
+    },
+    {
+      label: "Total Revenue",
+      value: formatPrice(stats.totalRevenueCents),
+      icon: DollarSign,
+      description: "Lifetime revenue",
+    },
+  ] as const;
+
   return (
     <div>
       {/* Header */}

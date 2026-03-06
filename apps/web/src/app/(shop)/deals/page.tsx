@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,8 @@ import { ProductCard } from "@amazone/shared-ui";
 import { formatPrice } from "@amazone/shared-utils";
 import { Zap, Tag, ArrowRight } from "lucide-react";
 import { CountdownTimer } from "./countdown-timer";
+
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Today's Deals - Amazone",
@@ -239,10 +242,12 @@ export default async function DealsPage(): Promise<React.ReactElement> {
             {/* Product image placeholder */}
             <div className="flex items-center justify-center bg-gray-100 p-8">
               {dealOfTheDay.image ? (
-                <img
+                <Image
                   src={dealOfTheDay.image}
                   alt={dealOfTheDay.name}
-                  className="max-h-72 object-contain"
+                  width={600}
+                  height={600}
+                  className="max-h-72 w-auto object-contain"
                 />
               ) : (
                 <div className="flex h-64 w-full items-center justify-center text-gray-400">
@@ -358,11 +363,12 @@ export default async function DealsPage(): Promise<React.ReactElement> {
               {/* Image */}
               <div className="relative aspect-square overflow-hidden bg-gray-100">
                 {deal.image ? (
-                  <img
+                  <Image
                     src={deal.image}
                     alt={deal.name}
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                    loading="lazy"
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                    className="object-cover transition-transform group-hover:scale-105"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-gray-400">

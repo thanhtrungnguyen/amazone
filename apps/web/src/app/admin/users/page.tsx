@@ -25,7 +25,6 @@ export const metadata = {
 // ---------------------------------------------------------------------------
 
 type UserRole = "admin" | "seller" | "customer";
-type UserStatus = "active" | "suspended";
 
 interface AdminUser {
   id: string;
@@ -33,17 +32,17 @@ interface AdminUser {
   email: string;
   role: UserRole;
   joinedDate: string;
-  status: UserStatus;
+  orderCount: number;
 }
 
-const users: AdminUser[] = [
+const placeholderUsers: AdminUser[] = [
   {
     id: "usr-001",
     name: "Thanh Tran",
     email: "thanh@amazone.com",
     role: "admin",
     joinedDate: "2025-01-15",
-    status: "active",
+    orderCount: 0,
   },
   {
     id: "usr-002",
@@ -51,7 +50,7 @@ const users: AdminUser[] = [
     email: "alice.j@example.com",
     role: "seller",
     joinedDate: "2025-03-22",
-    status: "active",
+    orderCount: 5,
   },
   {
     id: "usr-003",
@@ -59,7 +58,7 @@ const users: AdminUser[] = [
     email: "bob.smith@example.com",
     role: "customer",
     joinedDate: "2025-06-10",
-    status: "active",
+    orderCount: 12,
   },
   {
     id: "usr-004",
@@ -67,7 +66,7 @@ const users: AdminUser[] = [
     email: "charlie.n@example.com",
     role: "seller",
     joinedDate: "2025-08-05",
-    status: "suspended",
+    orderCount: 3,
   },
   {
     id: "usr-005",
@@ -75,7 +74,7 @@ const users: AdminUser[] = [
     email: "diana.lee@example.com",
     role: "customer",
     joinedDate: "2025-11-18",
-    status: "active",
+    orderCount: 8,
   },
   {
     id: "usr-006",
@@ -83,9 +82,45 @@ const users: AdminUser[] = [
     email: "ethan.p@example.com",
     role: "customer",
     joinedDate: "2026-01-03",
-    status: "active",
+    orderCount: 1,
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Data fetcher
+// ---------------------------------------------------------------------------
+
+async function getUsers(): Promise<AdminUser[]> {
+  try {
+    const { db, users, orders } = await import("@amazone/db");
+    const { sql, desc, eq } = await import("drizzle-orm");
+
+    const rows = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        joinedDate: users.createdAt,
+        orderCount: sql<number>`count(${orders.id})::int`,
+      })
+      .from(users)
+      .leftJoin(orders, eq(orders.userId, users.id))
+      .groupBy(users.id)
+      .orderBy(desc(users.createdAt));
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      role: row.role as UserRole,
+      joinedDate: row.joinedDate.toISOString().slice(0, 10),
+      orderCount: row.orderCount,
+    }));
+  } catch {
+    return placeholderUsers;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -104,20 +139,13 @@ function getRoleBadgeVariant(
   }
 }
 
-function getStatusClasses(status: UserStatus): string {
-  switch (status) {
-    case "active":
-      return "bg-green-100 text-green-800 border-green-200";
-    case "suspended":
-      return "bg-red-100 text-red-800 border-red-200";
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Page component
 // ---------------------------------------------------------------------------
 
-export default function AdminUsersPage(): React.ReactElement {
+export default async function AdminUsersPage(): Promise<React.ReactElement> {
+  const users = await getUsers();
+
   return (
     <div>
       {/* Header */}
@@ -144,7 +172,7 @@ export default function AdminUsersPage(): React.ReactElement {
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Joined</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Orders</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -160,13 +188,8 @@ export default function AdminUsersPage(): React.ReactElement {
                   <TableCell className="text-muted-foreground">
                     {user.joinedDate}
                   </TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusClasses(user.status)}`}
-                    >
-                      {user.status.charAt(0).toUpperCase() +
-                        user.status.slice(1)}
-                    </span>
+                  <TableCell className="text-right">
+                    {user.orderCount}
                   </TableCell>
                 </TableRow>
               ))}

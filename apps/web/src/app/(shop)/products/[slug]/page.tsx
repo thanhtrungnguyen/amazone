@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -73,6 +74,8 @@ async function fetchProduct(slug: string): Promise<Product | null> {
   }
 }
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://amazone.com";
+
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params;
   const product = await fetchProduct(slug);
@@ -81,9 +84,63 @@ export async function generateMetadata({ params }: ProductPageProps) {
     return { title: "Product Not Found — Amazone" };
   }
 
+  const description =
+    product.description?.slice(0, 160) ?? `Buy ${product.name} at Amazone`;
+  const productUrl = `${BASE_URL}/products/${product.slug}`;
+
   return {
     title: `${product.name} — Amazone`,
-    description: product.description?.slice(0, 160),
+    description,
+    alternates: {
+      canonical: productUrl,
+    },
+    openGraph: {
+      title: product.name,
+      description,
+      url: productUrl,
+      type: "website",
+      images: product.images?.[0]
+        ? [{ url: product.images[0], alt: product.name }]
+        : undefined,
+    },
+    twitter: {
+      card: "summary_large_image" as const,
+      title: product.name,
+      description,
+      images: product.images?.[0] ? [product.images[0]] : undefined,
+    },
+  };
+}
+
+function buildProductJsonLd(product: Product): object {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description ?? undefined,
+    image: product.images?.[0] ?? undefined,
+    url: `${BASE_URL}/products/${product.slug}`,
+    sku: product.id,
+    offers: {
+      "@type": "Offer",
+      price: (product.price / 100).toFixed(2),
+      priceCurrency: "USD",
+      availability:
+        product.stock > 0
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+      url: `${BASE_URL}/products/${product.slug}`,
+    },
+    aggregateRating:
+      product.reviewCount > 0
+        ? {
+            "@type": "AggregateRating",
+            ratingValue: (product.avgRating / 100).toFixed(1),
+            bestRating: "5",
+            worstRating: "1",
+            reviewCount: product.reviewCount,
+          }
+        : undefined,
   };
 }
 
@@ -106,17 +163,26 @@ export default async function ProductPage({ params }: ProductPageProps) {
       )
     : 0;
 
+  const productJsonLd = buildProductJsonLd(product);
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Product Images */}
         <div className="space-y-4">
           <div className="aspect-square overflow-hidden rounded-lg border bg-gray-100">
             {product.images?.[0] ? (
-              <img
+              <Image
                 src={product.images[0]}
                 alt={product.name}
+                width={600}
+                height={600}
                 className="h-full w-full object-cover"
+                priority
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-6xl text-gray-300">
@@ -132,9 +198,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   key={i}
                   className="h-20 w-20 overflow-hidden rounded-md border"
                 >
-                  <img
+                  <Image
                     src={img!}
                     alt={`${product.name} ${i + 1}`}
+                    width={80}
+                    height={80}
                     className="h-full w-full object-cover"
                   />
                 </div>
