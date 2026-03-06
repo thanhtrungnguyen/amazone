@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingCart, Search, User, Menu } from "lucide-react";
+import { ShoppingCart, Search, User, Menu, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,10 +14,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useCartStore } from "@/stores/cart-store";
+import { useWishlistStore } from "@/stores/wishlist-store";
 
 export function SiteHeader(): React.ReactElement {
   const totalItems = useCartStore((s) => s.totalItems());
   const openCart = useCartStore((s) => s.open);
+  const wishlistCount = useWishlistStore((s) => s.items.length);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white">
@@ -74,6 +76,12 @@ export function SiteHeader(): React.ReactElement {
             Products
           </Link>
           <Link
+            href="/categories"
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Categories
+          </Link>
+          <Link
             href="/deals"
             className="text-muted-foreground transition-colors hover:text-foreground"
           >
@@ -87,6 +95,21 @@ export function SiteHeader(): React.ReactElement {
           <Button variant="ghost" size="icon" className="md:hidden">
             <Search className="h-5 w-5" />
             <span className="sr-only">Search</span>
+          </Button>
+
+          {/* Wishlist */}
+          <Button variant="ghost" size="icon" className="relative" asChild>
+            <Link href="/wishlist">
+              <Heart className="h-5 w-5" />
+              {wishlistCount > 0 && (
+                <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full p-0 text-[10px]">
+                  {wishlistCount}
+                </Badge>
+              )}
+              <span className="sr-only">
+                Wishlist ({wishlistCount} items)
+              </span>
+            </Link>
           </Button>
 
           {/* User menu */}
@@ -106,10 +129,20 @@ export function SiteHeader(): React.ReactElement {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/dashboard">Seller Dashboard</Link>
+                <Link href="/profile">My Profile</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/orders">My Orders</Link>
+                <Link href="/profile/orders">My Orders</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/wishlist">Wishlist</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings">Settings</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard">Seller Dashboard</Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
