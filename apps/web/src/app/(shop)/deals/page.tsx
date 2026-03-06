@@ -94,7 +94,15 @@ const placeholderDeals: DealProduct[] = [
   },
 ];
 
-const dealOfTheDay: DealProduct = {
+interface LightningDeal extends DealProduct {
+  claimedPercent: number;
+}
+
+// ---------------------------------------------------------------------------
+// Placeholder deal of the day -- used when DB is not connected
+// ---------------------------------------------------------------------------
+
+const placeholderDealOfTheDay: DealProduct = {
   name: "Noise-Cancelling Over-Ear Headphones Pro",
   slug: "noise-cancelling-headphones-pro",
   price: 19999,
@@ -104,11 +112,7 @@ const dealOfTheDay: DealProduct = {
   reviewCount: 1024,
 };
 
-interface LightningDeal extends DealProduct {
-  claimedPercent: number;
-}
-
-const lightningDeals: LightningDeal[] = [
+const placeholderLightningDeals: LightningDeal[] = [
   {
     name: "Portable Bluetooth Earbuds",
     slug: "portable-bluetooth-earbuds",
@@ -155,16 +159,116 @@ const lightningDeals: LightningDeal[] = [
 // Data fetching with dynamic import + fallback
 // ---------------------------------------------------------------------------
 
-async function getDealsProducts(): Promise<DealProduct[]> {
+interface DealsData {
+  dealOfTheDay: DealProduct;
+  deals: DealProduct[];
+  lightningDeals: LightningDeal[];
+}
+
+async function getDealsData(): Promise<DealsData> {
   try {
+    const { db, products } = await import("@amazone/db");
+    const { and, isNotNull, gt, eq, desc, sql, notInArray } = await import(
+      "drizzle-orm"
+    );
+
+    // ── Deal of the Day: highest discount percentage ──
+    const onSaleCondition = and(
+      isNotNull(products.compareAtPrice),
+      gt(products.compareAtPrice, products.price),
+      eq(products.isActive, true)
+    );
+
+    const [topDeal] = await db
+      .select({
+        name: products.name,
+        slug: products.slug,
+        price: products.price,
+        compareAtPrice: products.compareAtPrice,
+        image: products.images,
+        avgRating: products.avgRating,
+        reviewCount: products.reviewCount,
+        stock: products.stock,
+        discountPct: sql<number>`round(((${products.compareAtPrice} - ${products.price})::numeric / ${products.compareAtPrice}::numeric) * 100)`.as(
+          "discount_pct"
+        ),
+      })
+      .from(products)
+      .where(onSaleCondition)
+      .orderBy(
+        desc(
+          sql`((${products.compareAtPrice} - ${products.price})::numeric / ${products.compareAtPrice}::numeric)`
+        )
+      )
+      .limit(1);
+
+    const resolvedDealOfTheDay: DealProduct = topDeal
+      ? {
+          name: topDeal.name,
+          slug: topDeal.slug,
+          price: topDeal.price,
+          compareAtPrice: topDeal.compareAtPrice as number,
+          image: topDeal.image?.[0] ?? null,
+          avgRating: topDeal.avgRating,
+          reviewCount: topDeal.reviewCount,
+        }
+      : placeholderDealOfTheDay;
+
+    // ── Lightning Deals: 4 popular on-sale products (excluding deal of the day) ──
+    const excludeSlugs = topDeal ? [topDeal.slug] : [];
+
+    const lightningRows = await db
+      .select({
+        name: products.name,
+        slug: products.slug,
+        price: products.price,
+        compareAtPrice: products.compareAtPrice,
+        image: products.images,
+        avgRating: products.avgRating,
+        reviewCount: products.reviewCount,
+        stock: products.stock,
+      })
+      .from(products)
+      .where(
+        excludeSlugs.length > 0
+          ? and(onSaleCondition, notInArray(products.slug, excludeSlugs))
+          : onSaleCondition
+      )
+      .orderBy(desc(products.reviewCount))
+      .limit(4);
+
+    const resolvedLightningDeals: LightningDeal[] =
+      lightningRows.length > 0
+        ? lightningRows.map((row) => ({
+            name: row.name,
+            slug: row.slug,
+            price: row.price,
+            compareAtPrice: row.compareAtPrice as number,
+            image: row.image?.[0] ?? null,
+            avgRating: row.avgRating,
+            reviewCount: row.reviewCount,
+            claimedPercent: Math.max(
+              10,
+              Math.min(
+                95,
+                100 -
+                  Math.round(
+                    (row.stock / (row.stock + row.reviewCount)) * 100
+                  )
+              )
+            ),
+          }))
+        : placeholderLightningDeals;
+
+    // ── Products on Sale (general grid) ──
     const { listProducts } = await import("@amazone/products");
-    const products = await listProducts({
+    const allProducts = await listProducts({
       isActive: true,
       sortBy: "price_asc",
       limit: 20,
     });
 
-    const onSale = products
+    const onSaleProducts = allProducts
       .filter(
         (p) =>
           p.compareAtPrice !== null &&
@@ -182,9 +286,17 @@ async function getDealsProducts(): Promise<DealProduct[]> {
         reviewCount: p.reviewCount,
       }));
 
-    return onSale.length > 0 ? onSale : placeholderDeals;
+    return {
+      dealOfTheDay: resolvedDealOfTheDay,
+      deals: onSaleProducts.length > 0 ? onSaleProducts : placeholderDeals,
+      lightningDeals: resolvedLightningDeals,
+    };
   } catch {
-    return placeholderDeals;
+    return {
+      dealOfTheDay: placeholderDealOfTheDay,
+      deals: placeholderDeals,
+      lightningDeals: placeholderLightningDeals,
+    };
   }
 }
 
@@ -208,7 +320,7 @@ function getDealEndTime(): Date {
 // ---------------------------------------------------------------------------
 
 export default async function DealsPage(): Promise<React.ReactElement> {
-  const deals = await getDealsProducts();
+  const { dealOfTheDay, deals, lightningDeals } = await getDealsData();
   const dealEnd = getDealEndTime();
 
   return (

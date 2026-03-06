@@ -17,6 +17,8 @@ import { Users, Package, ShoppingCart, DollarSign } from "lucide-react";
 import { formatPrice } from "@amazone/shared-utils";
 import { OrderStatusBadge } from "@amazone/shared-ui";
 import type { OrderStatus } from "@amazone/shared-utils";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Dashboard - Admin | Amazone",
@@ -94,24 +96,34 @@ interface DashboardStats {
 async function getStats(): Promise<DashboardStats> {
   try {
     const { db, users, products, orders } = await import("@amazone/db");
-    const { sql } = await import("drizzle-orm");
+    const { sql, eq, and, ne } = await import("drizzle-orm");
 
-    const [[userCount], [productCount], [orderStats]] = await Promise.all([
-      db.select({ count: sql<number>`count(*)::int` }).from(users),
-      db.select({ count: sql<number>`count(*)::int` }).from(products),
-      db
-        .select({
-          count: sql<number>`count(*)::int`,
-          revenue: sql<number>`coalesce(sum(${orders.totalInCents}), 0)::int`,
-        })
-        .from(orders),
-    ]);
+    const [[userCount], [productCount], [orderCount], [revenueResult]] =
+      await Promise.all([
+        db.select({ count: sql<number>`count(*)::int` }).from(users),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(products)
+          .where(eq(products.isActive, true)),
+        db.select({ count: sql<number>`count(*)::int` }).from(orders),
+        db
+          .select({
+            revenue: sql<number>`coalesce(sum(${orders.totalInCents}), 0)::int`,
+          })
+          .from(orders)
+          .where(
+            and(
+              ne(orders.status, "cancelled"),
+              ne(orders.status, "refunded"),
+            ),
+          ),
+      ]);
 
     return {
       totalUsers: userCount?.count ?? 0,
       totalProducts: productCount?.count ?? 0,
-      totalOrders: orderStats?.count ?? 0,
-      totalRevenueCents: orderStats?.revenue ?? 0,
+      totalOrders: orderCount?.count ?? 0,
+      totalRevenueCents: revenueResult?.revenue ?? 0,
     };
   } catch {
     return placeholderStats;
@@ -153,6 +165,11 @@ async function getRecentOrders(): Promise<RecentOrder[]> {
 // ---------------------------------------------------------------------------
 
 export default async function AdminDashboardPage(): Promise<React.ReactElement> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "admin") {
+    redirect("/");
+  }
+
   const [stats, recentOrders] = await Promise.all([
     getStats(),
     getRecentOrders(),

@@ -14,6 +14,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Users - Admin | Amazone",
@@ -144,6 +146,11 @@ function getRoleBadgeVariant(
 // ---------------------------------------------------------------------------
 
 export default async function AdminUsersPage(): Promise<React.ReactElement> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "admin") {
+    redirect("/");
+  }
+
   const users = await getUsers();
 
   return (

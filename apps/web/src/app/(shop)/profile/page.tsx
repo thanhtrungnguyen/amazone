@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { formatPrice } from "@amazone/shared-utils";
 import { OrderStatusBadge } from "@amazone/shared-ui";
 import {
@@ -88,32 +89,105 @@ const placeholderRecentOrders: PlaceholderOrder[] = [
 
 // ── Data fetching with fallback ─────────────────────────────────────
 
+function generateOrderNumber(id: string, createdAt: Date): string {
+  const year = createdAt.getFullYear();
+  const hex = id.replace(/-/g, "").slice(0, 4).toUpperCase();
+  return `AMZ-${year}-${hex}`;
+}
+
 async function getProfileData(): Promise<{
   user: PlaceholderUser;
   stats: PlaceholderStats;
   recentOrders: PlaceholderOrder[];
 }> {
   try {
-    // TODO: Replace with real data fetching from @amazone/users and @amazone/orders
     const { auth } = await import("@/lib/auth");
     const session = await auth();
-    if (session?.user) {
-      return {
-        user: {
-          name: session.user.name ?? "User",
-          email: session.user.email ?? "",
-          memberSince: "2024-03-15",
-        },
-        stats: placeholderStats,
-        recentOrders: placeholderRecentOrders,
-      };
+
+    if (!session?.user?.id) {
+      redirect("/sign-in");
     }
+
+    const userId = session.user.id;
+
+    const { db, orders, reviews, users } = await import("@amazone/db");
+    const { count, sum, eq, and, desc, notInArray } = await import("drizzle-orm");
+
+    // Run all queries in parallel
+    const [orderCountResult, totalSpentResult, reviewCountResult, recentOrdersResult, userRecord] =
+      await Promise.all([
+        // Total orders
+        db
+          .select({ value: count() })
+          .from(orders)
+          .where(eq(orders.userId, userId)),
+        // Total spent (excluding cancelled/refunded)
+        db
+          .select({ value: sum(orders.totalInCents) })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.userId, userId),
+              notInArray(orders.status, ["cancelled", "refunded"]),
+            ),
+          ),
+        // Reviews written
+        db
+          .select({ value: count() })
+          .from(reviews)
+          .where(eq(reviews.userId, userId)),
+        // 3 most recent orders with items
+        db.query.orders.findMany({
+          where: eq(orders.userId, userId),
+          orderBy: desc(orders.createdAt),
+          limit: 3,
+          with: { items: true },
+        }),
+        // User record for createdAt
+        db.query.users.findFirst({
+          where: eq(users.id, userId),
+          columns: { createdAt: true },
+        }),
+      ]);
+
+    const totalOrders = orderCountResult[0]?.value ?? 0;
+    const totalSpentInCents = Number(totalSpentResult[0]?.value ?? 0);
+    const reviewsWritten = reviewCountResult[0]?.value ?? 0;
+    const memberSince = userRecord?.createdAt?.toISOString().split("T")[0] ?? "2024-01-01";
+
+    const mappedOrders: PlaceholderOrder[] = recentOrdersResult.map((o) => ({
+      id: o.id,
+      orderNumber: generateOrderNumber(o.id, o.createdAt),
+      status: o.status as OrderStatus,
+      totalInCents: o.totalInCents,
+      itemsCount: o.items.length,
+      createdAt: o.createdAt.toISOString().split("T")[0],
+    }));
+
     return {
-      user: placeholderUser,
-      stats: placeholderStats,
-      recentOrders: placeholderRecentOrders,
+      user: {
+        name: session.user.name ?? "User",
+        email: session.user.email ?? "",
+        memberSince,
+      },
+      stats: {
+        totalOrders,
+        totalSpentInCents,
+        reviewsWritten,
+      },
+      recentOrders: mappedOrders,
     };
-  } catch {
+  } catch (error) {
+    // Rethrow redirect errors (Next.js uses a special error with NEXT_REDIRECT digest)
+    if (
+      error != null &&
+      typeof error === "object" &&
+      "digest" in error &&
+      typeof (error as { digest: unknown }).digest === "string" &&
+      (error as { digest: string }).digest.includes("NEXT_REDIRECT")
+    ) {
+      throw error;
+    }
     return {
       user: placeholderUser,
       stats: placeholderStats,

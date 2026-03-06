@@ -148,6 +148,74 @@ const placeholderFeatured = [
   },
 ];
 
+const CATEGORY_EMOJI_MAP: Record<string, string> = {
+  electronics: "🎧",
+  clothing: "👕",
+  "home-kitchen": "🏠",
+  books: "📚",
+  "sports-outdoors": "⚽",
+  beauty: "💄",
+  "toys-games": "🎮",
+  automotive: "🚗",
+  "health-wellness": "💊",
+  grocery: "🛒",
+  "office-supplies": "🖊️",
+  "pet-supplies": "🐾",
+};
+
+const placeholderCategories = [
+  { name: "Electronics", slug: "electronics", emoji: "🎧", count: 156 },
+  { name: "Clothing", slug: "clothing", emoji: "👕", count: 423 },
+  { name: "Home & Kitchen", slug: "home-kitchen", emoji: "🏠", count: 289 },
+  { name: "Books", slug: "books", emoji: "📚", count: 1024 },
+  {
+    name: "Sports & Outdoors",
+    slug: "sports-outdoors",
+    emoji: "⚽",
+    count: 178,
+  },
+  { name: "Toys & Games", slug: "toys-games", emoji: "🎮", count: 312 },
+];
+
+async function getCategories(): Promise<
+  { name: string; slug: string; emoji: string; count: number }[]
+> {
+  try {
+    const { db, products } = await import("@amazone/db");
+    const { eq, and, count: countFn } = await import("drizzle-orm");
+
+    const allCategories = await db.query.categories.findMany();
+
+    if (allCategories.length === 0) {
+      return placeholderCategories;
+    }
+
+    const result = await Promise.all(
+      allCategories.map(async (cat) => {
+        const [row] = await db
+          .select({ count: countFn() })
+          .from(products)
+          .where(
+            and(
+              eq(products.categoryId, cat.id),
+              eq(products.isActive, true)
+            )
+          );
+        return {
+          name: cat.name,
+          slug: cat.slug,
+          emoji: CATEGORY_EMOJI_MAP[cat.slug] ?? "📦",
+          count: row?.count ?? 0,
+        };
+      })
+    );
+
+    return result;
+  } catch {
+    return placeholderCategories;
+  }
+}
+
 async function getFeaturedProducts() {
   try {
     const { listProducts } = await import("@amazone/products");
@@ -172,7 +240,10 @@ async function getFeaturedProducts() {
 }
 
 export default async function HomePage() {
-  const featured = await getFeaturedProducts();
+  const [featured, categoryList] = await Promise.all([
+    getFeaturedProducts(),
+    getCategories(),
+  ]);
 
   return (
     <>
@@ -245,14 +316,7 @@ export default async function HomePage() {
           </Button>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            { name: "Electronics", slug: "electronics", emoji: "🎧", count: 156 },
-            { name: "Clothing", slug: "clothing", emoji: "👕", count: 423 },
-            { name: "Home & Kitchen", slug: "home-kitchen", emoji: "🏠", count: 289 },
-            { name: "Books", slug: "books", emoji: "📚", count: 1024 },
-            { name: "Sports & Outdoors", slug: "sports-outdoors", emoji: "⚽", count: 178 },
-            { name: "Toys & Games", slug: "toys-games", emoji: "🎮", count: 312 },
-          ].map((cat) => (
+          {categoryList.map((cat) => (
             <Link key={cat.slug} href={`/categories/${cat.slug}`}>
               <Card className="transition-colors hover:border-primary">
                 <CardContent className="flex items-center gap-4 p-4">

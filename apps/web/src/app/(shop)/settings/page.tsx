@@ -50,19 +50,26 @@ const placeholderSettings: UserSettings = {
 
 async function getSettings(): Promise<UserSettings> {
   try {
-    // TODO: Replace with real data fetching from @amazone/users
     const { auth } = await import("@/lib/auth");
     const session = await auth();
-    if (session?.user) {
-      return {
-        ...placeholderSettings,
-        user: {
-          name: session.user.name ?? "User",
-          email: session.user.email ?? "",
-        },
-      };
+
+    if (!session?.user?.id) {
+      return placeholderSettings;
     }
-    return placeholderSettings;
+
+    // Query the real user record for additional stored data
+    const { getUserById } = await import("@amazone/users");
+    const user = await getUserById(session.user.id);
+
+    return {
+      ...placeholderSettings,
+      user: {
+        name: user?.name ?? session.user.name ?? "User",
+        email: user?.email ?? session.user.email ?? "",
+      },
+      // Address fields are not yet stored in the users table,
+      // so we keep the placeholder defaults until the schema is extended.
+    };
   } catch {
     return placeholderSettings;
   }

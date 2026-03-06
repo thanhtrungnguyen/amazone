@@ -16,6 +16,8 @@ import {
 import { formatPrice } from "@amazone/shared-utils";
 import { OrderStatusBadge } from "@amazone/shared-ui";
 import type { OrderStatus } from "@amazone/shared-utils";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Orders - Admin | Amazone",
@@ -160,6 +162,11 @@ async function getOrders(): Promise<AdminOrder[]> {
 // ---------------------------------------------------------------------------
 
 export default async function AdminOrdersPage(): Promise<React.ReactElement> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "admin") {
+    redirect("/");
+  }
+
   const orders = await getOrders();
 
   return (

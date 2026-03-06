@@ -1,6 +1,6 @@
 "use server";
 
-import { db, reviews, products, orderItems } from "@amazone/db";
+import { db, reviews, products, orderItems, orders } from "@amazone/db";
 import { eq, and, desc, avg, count } from "drizzle-orm";
 import {
   createReviewSchema,
@@ -15,19 +15,33 @@ export async function createReview(
 ): Promise<typeof reviews.$inferSelect> {
   const validated = createReviewSchema.parse(input);
 
-  // Check if user has purchased the product
-  const purchase = await db.query.orderItems.findFirst({
-    where: eq(orderItems.productId, validated.productId),
-    with: {
-      order: {
-        columns: { userId: true, status: true },
-      },
-    },
+  // Check for existing review from this user on this product
+  const existingReview = await db.query.reviews.findFirst({
+    where: and(
+      eq(reviews.userId, userId),
+      eq(reviews.productId, validated.productId),
+    ),
   });
 
-  const isVerifiedPurchase =
-    purchase?.order?.userId === userId &&
-    purchase?.order?.status === "delivered";
+  if (existingReview) {
+    throw new Error("You have already reviewed this product. You can edit your existing review instead.");
+  }
+
+  // Check if user has purchased and received this product
+  const purchasedOrders = await db
+    .select({ status: orders.status })
+    .from(orders)
+    .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+    .where(
+      and(
+        eq(orders.userId, userId),
+        eq(orderItems.productId, validated.productId),
+        eq(orders.status, "delivered"),
+      )
+    )
+    .limit(1);
+
+  const isVerifiedPurchase = purchasedOrders.length > 0;
 
   const [review] = await db
     .insert(reviews)

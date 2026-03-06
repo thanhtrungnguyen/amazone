@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -23,132 +24,241 @@ import {
   Star,
 } from "lucide-react";
 import { formatPrice } from "@amazone/shared-utils";
+import { auth } from "@/lib/auth";
 
 export const metadata = {
   title: "Analytics -- Amazone Dashboard",
   description: "View your seller performance metrics and revenue analytics.",
 };
 
-// ---------- Placeholder data (cents) ----------
+// ---------- Types ----------
 
-const stats = [
-  {
-    title: "Total Revenue",
-    value: formatPrice(1_284_750),
-    change: "+12.5% from last month",
-    icon: DollarSign,
-  },
-  {
-    title: "Total Orders",
-    value: "356",
-    change: "+8.2% from last month",
-    icon: ShoppingCart,
-  },
-  {
-    title: "Avg Order Value",
-    value: formatPrice(3_609),
-    change: "+3.1% from last month",
-    icon: BarChart3,
-  },
-  {
-    title: "Conversion Rate",
-    value: "3.24%",
-    change: "+0.4% from last month",
-    icon: TrendingUp,
-  },
-];
+interface StatCard {
+  title: string;
+  value: string;
+  icon: typeof DollarSign;
+}
 
-const revenueByDay = [
-  { date: "Feb 28", revenueInCents: 198_400 },
-  { date: "Mar 01", revenueInCents: 165_200 },
-  { date: "Mar 02", revenueInCents: 220_800 },
-  { date: "Mar 03", revenueInCents: 142_500 },
-  { date: "Mar 04", revenueInCents: 189_300 },
-  { date: "Mar 05", revenueInCents: 251_600 },
-  { date: "Mar 06", revenueInCents: 116_950 },
-];
+interface RevenueDay {
+  date: string;
+  revenueInCents: number;
+}
 
-const topProducts = [
-  {
-    name: "Wireless Noise-Cancelling Headphones",
-    unitsSold: 84,
-    revenueInCents: 335_916,
-  },
-  {
-    name: "USB-C Fast Charging Cable (3-Pack)",
-    unitsSold: 213,
-    revenueInCents: 254_787,
-  },
-  {
-    name: "Ergonomic Mechanical Keyboard",
-    unitsSold: 47,
-    revenueInCents: 223_953,
-  },
-  {
-    name: "Portable Bluetooth Speaker",
-    unitsSold: 62,
-    revenueInCents: 185_938,
-  },
-  {
-    name: "Smart LED Desk Lamp",
-    unitsSold: 91,
-    revenueInCents: 136_409,
-  },
-];
+interface TopProduct {
+  name: string;
+  unitsSold: number;
+  revenueInCents: number;
+}
 
 interface ActivityEvent {
   id: string;
-  type: "order" | "review" | "milestone";
+  type: "order" | "review";
   message: string;
   timestamp: string;
 }
 
-const recentActivity: ActivityEvent[] = [
-  {
-    id: "evt-1",
-    type: "order",
-    message: "New order #ord-047 from Sarah K. for $79.99",
-    timestamp: "12 minutes ago",
-  },
-  {
-    id: "evt-2",
-    type: "review",
-    message:
-      'New 5-star review on "Wireless Noise-Cancelling Headphones"',
-    timestamp: "1 hour ago",
-  },
-  {
-    id: "evt-3",
-    type: "milestone",
-    message:
-      '"USB-C Fast Charging Cable" reached 200 product views',
-    timestamp: "3 hours ago",
-  },
-  {
-    id: "evt-4",
-    type: "order",
-    message: "New order #ord-046 from Mike T. for $149.97",
-    timestamp: "5 hours ago",
-  },
-  {
-    id: "evt-5",
-    type: "review",
-    message:
-      'New 4-star review on "Ergonomic Mechanical Keyboard"',
-    timestamp: "8 hours ago",
-  },
-];
-
 const activityIcons: Record<ActivityEvent["type"], typeof ShoppingCart> = {
   order: ShoppingCart,
   review: Star,
-  milestone: Eye,
 };
+
+// ---------- Data fetching ----------
+
+interface AnalyticsData {
+  stats: StatCard[];
+  revenueByDay: RevenueDay[];
+  topProducts: TopProduct[];
+  recentActivity: ActivityEvent[];
+}
+
+async function getAnalyticsData(userId: string, isAdmin: boolean): Promise<AnalyticsData> {
+  try {
+    const { db, products, orders, orderItems, reviews } = await import("@amazone/db");
+    const { eq, and, ne, desc, sum, count, sql, inArray } = await import("drizzle-orm");
+
+    // Get seller's product IDs (admins see all)
+    const sellerProducts = isAdmin
+      ? await db.select({ id: products.id, name: products.name }).from(products)
+      : await db.select({ id: products.id, name: products.name }).from(products).where(eq(products.sellerId, userId));
+
+    const productIds = sellerProducts.map((p) => p.id);
+
+    if (productIds.length === 0) {
+      return { stats: defaultStats(), revenueByDay: [], topProducts: [], recentActivity: [] };
+    }
+
+    // Total revenue from delivered/confirmed/shipped orders
+    const revenueResult = await db
+      .select({ total: sum(sql`${orderItems.priceInCents} * ${orderItems.quantity}`) })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(
+        and(
+          inArray(orderItems.productId, productIds),
+          ne(orders.status, "cancelled"),
+          ne(orders.status, "refunded"),
+        )
+      );
+    const totalRevenue = Number(revenueResult[0]?.total ?? 0);
+
+    // Total orders (distinct)
+    const orderCountResult = await db
+      .selectDistinct({ orderId: orderItems.orderId })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(
+        and(
+          inArray(orderItems.productId, productIds),
+          ne(orders.status, "cancelled"),
+          ne(orders.status, "refunded"),
+        )
+      );
+    const totalOrders = orderCountResult.length;
+    const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+
+    const computedStats: StatCard[] = [
+      { title: "Total Revenue", value: formatPrice(totalRevenue), icon: DollarSign },
+      { title: "Total Orders", value: String(totalOrders), icon: ShoppingCart },
+      { title: "Avg Order Value", value: formatPrice(avgOrderValue), icon: BarChart3 },
+      { title: "Products", value: String(productIds.length), icon: TrendingUp },
+    ];
+
+    // Top products by revenue
+    const topProductsResult = await db
+      .select({
+        productId: orderItems.productId,
+        unitsSold: sum(orderItems.quantity),
+        revenue: sum(sql`${orderItems.priceInCents} * ${orderItems.quantity}`),
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(
+        and(
+          inArray(orderItems.productId, productIds),
+          ne(orders.status, "cancelled"),
+          ne(orders.status, "refunded"),
+        )
+      )
+      .groupBy(orderItems.productId)
+      .orderBy(desc(sum(sql`${orderItems.priceInCents} * ${orderItems.quantity}`)))
+      .limit(5);
+
+    const productNameMap = new Map(sellerProducts.map((p) => [p.id, p.name]));
+    const topProductsMapped: TopProduct[] = topProductsResult.map((row) => ({
+      name: productNameMap.get(row.productId) ?? "Unknown Product",
+      unitsSold: Number(row.unitsSold ?? 0),
+      revenueInCents: Number(row.revenue ?? 0),
+    }));
+
+    // Revenue by day (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const dailyRevenue = await db
+      .select({
+        day: sql<string>`to_char(${orders.createdAt}, 'Mon DD')`,
+        revenue: sum(sql`${orderItems.priceInCents} * ${orderItems.quantity}`),
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(
+        and(
+          inArray(orderItems.productId, productIds),
+          ne(orders.status, "cancelled"),
+          ne(orders.status, "refunded"),
+          sql`${orders.createdAt} >= ${sevenDaysAgo}`,
+        )
+      )
+      .groupBy(sql`to_char(${orders.createdAt}, 'Mon DD')`, sql`date_trunc('day', ${orders.createdAt})`)
+      .orderBy(sql`date_trunc('day', ${orders.createdAt})`);
+
+    const revenueByDayMapped: RevenueDay[] = dailyRevenue.map((row) => ({
+      date: row.day,
+      revenueInCents: Number(row.revenue ?? 0),
+    }));
+
+    // Recent activity: recent orders + reviews for seller's products
+    const recentOrders = await db.query.orders.findMany({
+      where: inArray(
+        orders.id,
+        db.selectDistinct({ id: orderItems.orderId }).from(orderItems).where(inArray(orderItems.productId, productIds))
+      ),
+      orderBy: desc(orders.createdAt),
+      limit: 3,
+      with: { user: { columns: { name: true } } },
+    });
+
+    const recentReviews = await db.query.reviews.findMany({
+      where: inArray(reviews.productId, productIds),
+      orderBy: desc(reviews.createdAt),
+      limit: 2,
+      with: {
+        user: { columns: { name: true } },
+        product: { columns: { name: true } },
+      },
+    });
+
+    const activity: ActivityEvent[] = [
+      ...recentOrders.map((o) => ({
+        id: o.id,
+        type: "order" as const,
+        message: `New order from ${(o as unknown as { user: { name: string } }).user?.name ?? "Customer"} for ${formatPrice(o.totalInCents)}`,
+        timestamp: timeAgo(o.createdAt),
+      })),
+      ...recentReviews.map((r) => ({
+        id: r.id,
+        type: "review" as const,
+        message: `New ${r.rating}-star review on "${(r as unknown as { product: { name: string } }).product?.name ?? "Product"}"`,
+        timestamp: timeAgo(r.createdAt),
+      })),
+    ].sort((a, b) => a.timestamp.localeCompare(b.timestamp)).slice(0, 5);
+
+    return {
+      stats: computedStats,
+      revenueByDay: revenueByDayMapped,
+      topProducts: topProductsMapped,
+      recentActivity: activity,
+    };
+  } catch {
+    return {
+      stats: defaultStats(),
+      revenueByDay: [],
+      topProducts: [],
+      recentActivity: [],
+    };
+  }
+}
+
+function defaultStats(): StatCard[] {
+  return [
+    { title: "Total Revenue", value: "$0.00", icon: DollarSign },
+    { title: "Total Orders", value: "0", icon: ShoppingCart },
+    { title: "Avg Order Value", value: "$0.00", icon: BarChart3 },
+    { title: "Products", value: "0", icon: TrendingUp },
+  ];
+}
+
+function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days !== 1 ? "s" : ""} ago`;
+}
 
 // ---------- Component ----------
 
-export default function AnalyticsPage(): React.ReactElement {
-  const maxRevenue = Math.max(...revenueByDay.map((d) => d.revenueInCents));
+export default async function AnalyticsPage(): Promise<React.ReactElement> {
+  const session = await auth();
+  if (!session?.user?.id || !["seller", "admin"].includes(session.user.role ?? "")) {
+    redirect("/sign-in");
+  }
+  const isAdmin = session.user.role === "admin";
+  const { stats, revenueByDay, topProducts, recentActivity } = await getAnalyticsData(session.user.id, isAdmin);
+  const maxRevenue = Math.max(0, ...revenueByDay.map((d) => d.revenueInCents));
 
   return (
     <div>

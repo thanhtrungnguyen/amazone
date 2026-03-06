@@ -269,15 +269,95 @@ const placeholderOrders: Record<string, OrderDetail> = {
   },
 };
 
+// -- Helpers: order number & payment status ----------------------------------
+
+function generateOrderNumber(id: string, createdAt: Date): string {
+  const year = createdAt.getFullYear();
+  const hex = id.replace(/-/g, "").slice(0, 4).toUpperCase();
+  return `AMZ-${year}-${hex}`;
+}
+
+function derivePaymentStatus(
+  status: string,
+): PaymentInfo["paymentStatus"] {
+  if (status === "refunded") return "refunded";
+  if (status === "cancelled") return "failed";
+  if (status === "pending") return "pending";
+  return "paid";
+}
+
 // -- Data fetching -----------------------------------------------------------
 
 async function getOrderById(id: string): Promise<OrderDetail | null> {
   try {
-    // TODO: Replace with real data fetching from @amazone/orders
     const { auth } = await import("@/lib/auth");
-    await auth();
-    return placeholderOrders[id] ?? null;
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return null;
+    }
+
+    const { getOrder } = await import("@amazone/orders");
+    // getOrder already filters by userId for security
+    const order = await getOrder(id, session.user.id);
+
+    if (!order) {
+      return null;
+    }
+
+    // Type the items with their product relation
+    const items = (
+      order as unknown as {
+        items: Array<{
+          id: string;
+          productId: string;
+          quantity: number;
+          priceInCents: number;
+          product: { id: string; name: string; slug: string; images: string[] | null };
+        }>;
+      }
+    ).items;
+
+    const mappedItems: OrderItem[] = items.map((item) => ({
+      id: item.id,
+      name: item.product?.name ?? "Unknown Product",
+      quantity: item.quantity,
+      unitPriceInCents: item.priceInCents,
+    }));
+
+    const subtotalInCents = mappedItems.reduce(
+      (sum, item) => sum + item.unitPriceInCents * item.quantity,
+      0,
+    );
+
+    const createdAt = order.createdAt;
+
+    return {
+      id: order.id,
+      orderNumber: generateOrderNumber(order.id, createdAt),
+      status: order.status as OrderStatus,
+      createdAt: createdAt.toISOString().split("T")[0],
+      items: mappedItems,
+      subtotalInCents,
+      shippingInCents: 0,
+      taxInCents: 0,
+      totalInCents: order.totalInCents,
+      shippingAddress: {
+        name: order.shippingName,
+        street: order.shippingAddress,
+        city: order.shippingCity,
+        state: "",
+        zip: order.shippingZip,
+        country: order.shippingCountry,
+      },
+      payment: {
+        cardLast4: "••••",
+        cardBrand: "Card",
+        paymentStatus: derivePaymentStatus(order.status),
+      },
+    };
   } catch {
+    // Fall back to placeholder data on DB errors
     return placeholderOrders[id] ?? null;
   }
 }

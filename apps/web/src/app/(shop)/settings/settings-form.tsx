@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { User, MapPin, Bell } from "lucide-react";
+import { saveSettings } from "./actions";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -33,24 +34,6 @@ interface SettingsFormProps {
     orderUpdates: boolean;
     promotions: boolean;
     reviews: boolean;
-  };
-}
-
-interface FormState {
-  message: string;
-  success: boolean;
-}
-
-// ── Stub server action (non-functional) ─────────────────────────────
-
-async function saveSettings(
-  _prevState: FormState,
-  _formData: FormData,
-): Promise<FormState> {
-  // TODO: Connect to @amazone/users server action
-  return {
-    message: "Settings saved successfully. (Stub — not persisted yet)",
-    success: true,
   };
 }
 

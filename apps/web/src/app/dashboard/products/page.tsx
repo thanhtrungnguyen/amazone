@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Package } from "lucide-react";
 import { formatPrice } from "@amazone/shared-utils";
 import { EmptyState } from "@amazone/shared-ui";
+import { auth } from "@/lib/auth";
 
 export const metadata = {
   title: "My Products — Amazone Dashboard",
@@ -29,56 +31,21 @@ interface SellerProduct {
   createdAt: Date;
 }
 
-const placeholderProducts: SellerProduct[] = [
-  {
-    id: "1",
-    name: "Premium Wireless Headphones",
-    slug: "premium-wireless-headphones",
-    price: 9999,
-    stock: 42,
-    isActive: true,
-    isFeatured: true,
-    avgRating: 450,
-    reviewCount: 128,
-    images: null,
-    createdAt: new Date("2025-01-15"),
-  },
-  {
-    id: "2",
-    name: "Mechanical Gaming Keyboard",
-    slug: "mechanical-gaming-keyboard",
-    price: 7999,
-    stock: 30,
-    isActive: true,
-    isFeatured: true,
-    avgRating: 470,
-    reviewCount: 312,
-    images: null,
-    createdAt: new Date("2025-02-01"),
-  },
-  {
-    id: "3",
-    name: "Bluetooth Portable Speaker",
-    slug: "bluetooth-portable-speaker",
-    price: 3999,
-    stock: 0,
-    isActive: false,
-    isFeatured: false,
-    avgRating: 430,
-    reviewCount: 245,
-    images: null,
-    createdAt: new Date("2025-02-20"),
-  },
-];
-
-async function getSellerProducts(): Promise<SellerProduct[]> {
+async function getSellerProducts(
+  userId: string,
+  isAdmin: boolean
+): Promise<SellerProduct[]> {
   try {
-    const { listProducts } = await import("@amazone/products");
-    const products = await listProducts({
-      sortBy: "newest",
+    const { db, products } = await import("@amazone/db");
+    const { desc, eq } = await import("drizzle-orm");
+
+    const result = await db.query.products.findMany({
+      ...(isAdmin ? {} : { where: eq(products.sellerId, userId) }),
+      orderBy: desc(products.createdAt),
       limit: 50,
     });
-    return products.map((p) => ({
+
+    return result.map((p) => ({
       id: p.id,
       name: p.name,
       slug: p.slug,
@@ -92,12 +59,17 @@ async function getSellerProducts(): Promise<SellerProduct[]> {
       createdAt: p.createdAt,
     }));
   } catch {
-    return placeholderProducts;
+    return [];
   }
 }
 
 export default async function DashboardProductsPage() {
-  const products = await getSellerProducts();
+  const session = await auth();
+  if (!session?.user?.id || !["seller", "admin"].includes(session.user.role ?? "")) {
+    redirect("/sign-in");
+  }
+  const isAdmin = session.user.role === "admin";
+  const products = await getSellerProducts(session.user.id, isAdmin);
 
   return (
     <div>

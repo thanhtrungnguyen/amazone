@@ -14,6 +14,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatPrice } from "@amazone/shared-utils";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Products - Admin | Amazone",
@@ -158,6 +160,11 @@ function getStatusBadgeClasses(status: ProductStatus): string {
 // ---------------------------------------------------------------------------
 
 export default async function AdminProductsPage(): Promise<React.ReactElement> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "admin") {
+    redirect("/");
+  }
+
   const products = await getProducts();
 
   return (

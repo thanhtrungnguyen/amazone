@@ -25,6 +25,12 @@ export async function createCheckoutSession(
 ): Promise<CheckoutResult> {
   const validated = checkoutSessionSchema.parse(input);
   const stripe = getStripe();
+
+  // Fail fast if Stripe is not configured — don't create an order without payment
+  if (!stripe) {
+    throw new Error("Payment processing is currently unavailable. Please try again later.");
+  }
+
   const cart = await getCart(userId);
 
   if (cart.items.length === 0) {
@@ -65,14 +71,6 @@ export async function createCheckoutSession(
       priceInCents: stockMap.get(item.product.id)!.price,
     }))
   );
-
-  // Stub mode: if Stripe is not configured, return a stub result
-  if (!stripe) {
-    return {
-      sessionId: `stub_${order.id}`,
-      url: `${validated.successUrl}?session_id=stub_${order.id}&order_id=${order.id}`,
-    };
-  }
 
   // Create Stripe checkout session
   const session = await stripe.checkout.sessions.create({
