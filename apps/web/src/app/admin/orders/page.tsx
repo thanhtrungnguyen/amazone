@@ -13,28 +13,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, Package, ShoppingCart, DollarSign } from "lucide-react";
 import { formatPrice } from "@amazone/shared-utils";
 import { OrderStatusBadge } from "@amazone/shared-ui";
 import type { OrderStatus } from "@amazone/shared-utils";
 
 export const metadata = {
-  title: "Dashboard - Admin | Amazone",
-  description: "Admin dashboard overview with platform-wide metrics.",
+  title: "Orders - Admin | Amazone",
+  description: "View and manage all orders across the platform.",
 };
 
 // ---------------------------------------------------------------------------
-// Placeholder data -- will be replaced with real DB queries
+// Placeholder data
 // ---------------------------------------------------------------------------
 
-const stats = {
-  totalUsers: 1_284,
-  totalProducts: 3_519,
-  totalOrders: 8_742,
-  totalRevenueCents: 1_294_350_00, // $1,294,350.00
-};
-
-interface RecentOrder {
+interface AdminOrder {
   id: string;
   customer: string;
   totalCents: number;
@@ -42,7 +34,7 @@ interface RecentOrder {
   date: string;
 }
 
-const recentOrders: RecentOrder[] = [
+const orders: AdminOrder[] = [
   {
     id: "ORD-9281",
     customer: "Alice Johnson",
@@ -78,80 +70,64 @@ const recentOrders: RecentOrder[] = [
     status: "pending",
     date: "2026-03-01",
   },
+  {
+    id: "ORD-9276",
+    customer: "Fiona Martinez",
+    totalCents: 74500,
+    status: "delivered",
+    date: "2026-02-28",
+  },
+  {
+    id: "ORD-9275",
+    customer: "George Kim",
+    totalCents: 15999,
+    status: "cancelled",
+    date: "2026-02-27",
+  },
+  {
+    id: "ORD-9274",
+    customer: "Hannah Brown",
+    totalCents: 42900,
+    status: "refunded",
+    date: "2026-02-26",
+  },
+  {
+    id: "ORD-9273",
+    customer: "Ivan Petrov",
+    totalCents: 29999,
+    status: "delivered",
+    date: "2026-02-25",
+  },
+  {
+    id: "ORD-9272",
+    customer: "Julia Chen",
+    totalCents: 8999,
+    status: "shipped",
+    date: "2026-02-24",
+  },
 ];
-
-// ---------------------------------------------------------------------------
-// Stat card config
-// ---------------------------------------------------------------------------
-
-const statCards = [
-  {
-    label: "Total Users",
-    value: stats.totalUsers.toLocaleString(),
-    icon: Users,
-    description: "+12% from last month",
-  },
-  {
-    label: "Total Products",
-    value: stats.totalProducts.toLocaleString(),
-    icon: Package,
-    description: "+48 new this week",
-  },
-  {
-    label: "Total Orders",
-    value: stats.totalOrders.toLocaleString(),
-    icon: ShoppingCart,
-    description: "+5.2% from last month",
-  },
-  {
-    label: "Total Revenue",
-    value: formatPrice(stats.totalRevenueCents),
-    icon: DollarSign,
-    description: "+8.1% from last month",
-  },
-] as const;
 
 // ---------------------------------------------------------------------------
 // Page component
 // ---------------------------------------------------------------------------
 
-export default function AdminDashboardPage(): React.ReactElement {
+export default function AdminOrdersPage(): React.ReactElement {
   return (
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
         <p className="text-muted-foreground">
-          Platform-wide metrics and recent activity.
+          View and manage all orders across the platform.
         </p>
       </div>
 
-      {/* Stats cards */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                {stat.label}
-              </CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {stat.description}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Recent orders table */}
+      {/* Orders table */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Orders</CardTitle>
+          <CardTitle>All Orders</CardTitle>
           <CardDescription>
-            The 5 most recent orders across the platform.
+            {orders.length} orders total. Showing most recent first.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -160,17 +136,19 @@ export default function AdminDashboardPage(): React.ReactElement {
               <TableRow>
                 <TableHead>Order ID</TableHead>
                 <TableHead>Customer</TableHead>
-                <TableHead>Total</TableHead>
+                <TableHead className="text-right">Total</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recentOrders.map((order) => (
+              {orders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.id}</TableCell>
                   <TableCell>{order.customer}</TableCell>
-                  <TableCell>{formatPrice(order.totalCents)}</TableCell>
+                  <TableCell className="text-right">
+                    {formatPrice(order.totalCents)}
+                  </TableCell>
                   <TableCell>
                     <OrderStatusBadge status={order.status} />
                   </TableCell>

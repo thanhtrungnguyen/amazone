@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(taskkill //F //PID 14868)"
+      "Bash(taskkill //F //PID 14868)",
+      "Bash(tasklist //FI \"IMAGENAME eq node.exe\" //FO CSV)",
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs kill -9)",
+      "Bash(AUTH_SECRET=dev-secret-local pnpm nx build web)"
     ]
   }
 }
