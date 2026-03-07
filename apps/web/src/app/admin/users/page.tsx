@@ -13,9 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { RoleSelect } from "./role-select";
 
 export const metadata = {
   title: "Users - Admin | Amazone",
@@ -125,23 +125,6 @@ async function getUsers(): Promise<AdminUser[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getRoleBadgeVariant(
-  role: UserRole
-): "default" | "secondary" | "outline" {
-  switch (role) {
-    case "admin":
-      return "default";
-    case "seller":
-      return "secondary";
-    case "customer":
-      return "outline";
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Page component
 // ---------------------------------------------------------------------------
 
@@ -188,9 +171,7 @@ export default async function AdminUsersPage(): Promise<React.ReactElement> {
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    <Badge variant={getRoleBadgeVariant(user.role)}>
-                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                    </Badge>
+                    <RoleSelect userId={user.id} currentRole={user.role} />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {user.joinedDate}

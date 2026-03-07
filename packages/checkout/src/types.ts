@@ -16,3 +16,11 @@ export interface CheckoutResult {
   sessionId: string;
   url: string;
 }
+
+/** Returned by handleWebhookEvent so the caller can trigger side-effects (e.g. email). */
+export interface WebhookResult {
+  /** The action that was taken, or "skipped" if idempotency/guard prevented processing. */
+  action: "confirmed" | "cancelled" | "refunded" | "skipped";
+  orderId?: string;
+  userId?: string;
+}

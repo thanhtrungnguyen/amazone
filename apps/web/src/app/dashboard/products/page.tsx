@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Package } from "lucide-react";
+import { Plus, Package, Pencil } from "lucide-react";
 import { formatPrice } from "@amazone/shared-utils";
 import { EmptyState } from "@amazone/shared-ui";
 import { auth } from "@/lib/auth";
@@ -112,9 +112,8 @@ export default async function DashboardProductsPage() {
           <CardContent className="p-0">
             <div className="divide-y">
               {products.map((product) => (
-                <Link
+                <div
                   key={product.id}
-                  href={`/products/${product.slug}`}
                   className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/50"
                 >
                   {/* Thumbnail */}
@@ -134,7 +133,12 @@ export default async function DashboardProductsPage() {
 
                   {/* Info */}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{product.name}</p>
+                    <Link
+                      href={`/products/${product.slug}`}
+                      className="truncate font-medium hover:underline"
+                    >
+                      {product.name}
+                    </Link>
                     <p className="text-sm text-muted-foreground">
                       {product.reviewCount} reviews
                     </p>
@@ -164,7 +168,17 @@ export default async function DashboardProductsPage() {
                       <Badge variant="destructive">Out of stock</Badge>
                     )}
                   </div>
-                </Link>
+
+                  {/* Edit action */}
+                  <Button variant="ghost" size="icon" asChild>
+                    <Link
+                      href={`/dashboard/products/${product.id}/edit`}
+                      aria-label={`Edit ${product.name}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
               ))}
             </div>
           </CardContent>

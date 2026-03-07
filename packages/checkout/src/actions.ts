@@ -3,12 +3,13 @@
 import Stripe from "stripe";
 import { getCart } from "@amazone/cart";
 import { createOrder } from "@amazone/orders";
-import { db, products, orders, stripeWebhookEvents } from "@amazone/db";
-import { eq, inArray } from "drizzle-orm";
+import { db, products, orders, orderItems, stripeWebhookEvents } from "@amazone/db";
+import { eq, inArray, sql } from "drizzle-orm";
 import {
   checkoutSessionSchema,
   type CheckoutSessionInput,
   type CheckoutResult,
+  type WebhookResult,
 } from "./types";
 
 function getStripe(): Stripe | null {
@@ -137,10 +138,64 @@ async function markEventProcessed(
     .onConflictDoNothing();
 }
 
+/**
+ * Atomically decrement stock for all items in an order.
+ * Must be called inside a transaction.
+ */
+async function decrementStock(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  orderId: string
+): Promise<void> {
+  const items = await tx
+    .select({
+      productId: orderItems.productId,
+      quantity: orderItems.quantity,
+    })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
+
+  for (const item of items) {
+    await tx
+      .update(products)
+      .set({
+        stock: sql`${products.stock} - ${item.quantity}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(products.id, item.productId));
+  }
+}
+
+/**
+ * Atomically restore stock for all items in an order (on cancel/refund).
+ * Must be called inside a transaction.
+ */
+async function restoreStock(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  orderId: string
+): Promise<void> {
+  const items = await tx
+    .select({
+      productId: orderItems.productId,
+      quantity: orderItems.quantity,
+    })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
+
+  for (const item of items) {
+    await tx
+      .update(products)
+      .set({
+        stock: sql`${products.stock} + ${item.quantity}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(products.id, item.productId));
+  }
+}
+
 export async function handleWebhookEvent(
   payload: string,
   signature: string
-): Promise<void> {
+): Promise<WebhookResult> {
   const stripe = getStripe();
 
   if (!stripe) {
@@ -161,8 +216,10 @@ export async function handleWebhookEvent(
 
   // Idempotency: skip if already processed
   if (await isEventProcessed(event.id)) {
-    return;
+    return { action: "skipped" };
   }
+
+  let result: WebhookResult = { action: "skipped" };
 
   switch (event.type) {
     case "checkout.session.completed": {
@@ -170,25 +227,34 @@ export async function handleWebhookEvent(
       const orderId = session.metadata?.orderId;
 
       if (orderId) {
-        // Only transition from "pending" to "confirmed" (guard against out-of-order)
         const [existing] = await db
-          .select({ status: orders.status })
+          .select({ status: orders.status, userId: orders.userId })
           .from(orders)
           .where(eq(orders.id, orderId))
           .limit(1);
 
         if (existing && existing.status === "pending") {
-          await db
-            .update(orders)
-            .set({
-              status: "confirmed",
-              stripePaymentIntentId:
-                typeof session.payment_intent === "string"
-                  ? session.payment_intent
-                  : session.payment_intent?.id,
-              updatedAt: new Date(),
-            })
-            .where(eq(orders.id, orderId));
+          await db.transaction(async (tx) => {
+            await tx
+              .update(orders)
+              .set({
+                status: "confirmed",
+                stripePaymentIntentId:
+                  typeof session.payment_intent === "string"
+                    ? session.payment_intent
+                    : session.payment_intent?.id,
+                updatedAt: new Date(),
+              })
+              .where(eq(orders.id, orderId));
+
+            await decrementStock(tx, orderId);
+          });
+
+          result = {
+            action: "confirmed",
+            orderId,
+            userId: existing.userId,
+          };
         }
       }
       break;
@@ -199,23 +265,33 @@ export async function handleWebhookEvent(
       const orderId = paymentIntent.metadata?.orderId;
 
       if (orderId) {
-        // Handle out-of-order: if checkout.session.completed hasn't arrived yet,
-        // this event can also confirm the order
         const [existing] = await db
-          .select({ status: orders.status })
+          .select({ status: orders.status, userId: orders.userId })
           .from(orders)
           .where(eq(orders.id, orderId))
           .limit(1);
 
+        // Handle out-of-order: if checkout.session.completed hasn't arrived yet,
+        // this event can also confirm the order
         if (existing && existing.status === "pending") {
-          await db
-            .update(orders)
-            .set({
-              status: "confirmed",
-              stripePaymentIntentId: paymentIntent.id,
-              updatedAt: new Date(),
-            })
-            .where(eq(orders.id, orderId));
+          await db.transaction(async (tx) => {
+            await tx
+              .update(orders)
+              .set({
+                status: "confirmed",
+                stripePaymentIntentId: paymentIntent.id,
+                updatedAt: new Date(),
+              })
+              .where(eq(orders.id, orderId));
+
+            await decrementStock(tx, orderId);
+          });
+
+          result = {
+            action: "confirmed",
+            orderId,
+            userId: existing.userId,
+          };
         }
       }
       break;
@@ -227,12 +303,12 @@ export async function handleWebhookEvent(
 
       if (orderId) {
         const [existing] = await db
-          .select({ status: orders.status })
+          .select({ status: orders.status, userId: orders.userId })
           .from(orders)
           .where(eq(orders.id, orderId))
           .limit(1);
 
-        // Only mark as cancelled if still pending (not yet confirmed/shipped)
+        // Only cancel if still pending — stock was never decremented for pending orders
         if (existing && existing.status === "pending") {
           await db
             .update(orders)
@@ -242,6 +318,12 @@ export async function handleWebhookEvent(
               updatedAt: new Date(),
             })
             .where(eq(orders.id, orderId));
+
+          result = {
+            action: "cancelled",
+            orderId,
+            userId: existing.userId,
+          };
         }
       }
       break;
@@ -255,16 +337,13 @@ export async function handleWebhookEvent(
           : charge.payment_intent?.id;
 
       if (paymentIntentId) {
-        // Find order by payment intent ID and mark as refunded
         const [existing] = await db
-          .select({ id: orders.id, status: orders.status })
+          .select({ id: orders.id, status: orders.status, userId: orders.userId })
           .from(orders)
           .where(eq(orders.stripePaymentIntentId, paymentIntentId))
           .limit(1);
 
         if (existing) {
-          // Valid refund transitions: confirmed, processing, shipped -> refunded
-          // Note: "returned" status can be added to orderStatusEnum in a future migration
           const refundableStatuses = [
             "confirmed",
             "processing",
@@ -275,13 +354,23 @@ export async function handleWebhookEvent(
               existing.status as (typeof refundableStatuses)[number]
             )
           ) {
-            await db
-              .update(orders)
-              .set({
-                status: "refunded",
-                updatedAt: new Date(),
-              })
-              .where(eq(orders.id, existing.id));
+            await db.transaction(async (tx) => {
+              await tx
+                .update(orders)
+                .set({
+                  status: "refunded",
+                  updatedAt: new Date(),
+                })
+                .where(eq(orders.id, existing.id));
+
+              await restoreStock(tx, existing.id);
+            });
+
+            result = {
+              action: "refunded",
+              orderId: existing.id,
+              userId: existing.userId,
+            };
           }
         }
       }
@@ -294,11 +383,12 @@ export async function handleWebhookEvent(
 
       if (orderId) {
         const [existing] = await db
-          .select({ status: orders.status })
+          .select({ status: orders.status, userId: orders.userId })
           .from(orders)
           .where(eq(orders.id, orderId))
           .limit(1);
 
+        // Pending orders never had stock decremented, so no restore needed
         if (existing && existing.status === "pending") {
           await db
             .update(orders)
@@ -307,6 +397,12 @@ export async function handleWebhookEvent(
               updatedAt: new Date(),
             })
             .where(eq(orders.id, orderId));
+
+          result = {
+            action: "cancelled",
+            orderId,
+            userId: existing.userId,
+          };
         }
       }
       break;
@@ -315,4 +411,6 @@ export async function handleWebhookEvent(
 
   // Mark event as processed after successful handling
   await markEventProcessed(event.id, event.type);
+
+  return result;
 }

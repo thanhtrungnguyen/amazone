@@ -16,6 +16,7 @@ import {
 import { formatPrice } from "@amazone/shared-utils";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { ProductToggles } from "./product-toggles";
 
 export const metadata = {
   title: "Products - Admin | Amazone",
@@ -26,8 +27,6 @@ export const metadata = {
 // Placeholder data
 // ---------------------------------------------------------------------------
 
-type ProductStatus = "active" | "inactive";
-
 interface AdminProduct {
   id: string;
   name: string;
@@ -35,7 +34,8 @@ interface AdminProduct {
   category: string | null;
   priceCents: number;
   stock: number;
-  status: ProductStatus;
+  isActive: boolean;
+  isFeatured: boolean;
   createdDate: string;
 }
 
@@ -47,7 +47,8 @@ const placeholderProducts: AdminProduct[] = [
     category: "Electronics",
     priceCents: 34999,
     stock: 142,
-    status: "active",
+    isActive: true,
+    isFeatured: true,
     createdDate: "2025-12-01",
   },
   {
@@ -57,7 +58,8 @@ const placeholderProducts: AdminProduct[] = [
     category: "Electronics",
     priceCents: 12999,
     stock: 305,
-    status: "active",
+    isActive: true,
+    isFeatured: false,
     createdDate: "2025-12-15",
   },
   {
@@ -67,7 +69,8 @@ const placeholderProducts: AdminProduct[] = [
     category: "Electronics",
     priceCents: 24900,
     stock: 58,
-    status: "active",
+    isActive: true,
+    isFeatured: false,
     createdDate: "2026-02-20",
   },
   {
@@ -77,7 +80,8 @@ const placeholderProducts: AdminProduct[] = [
     category: "Home & Kitchen",
     priceCents: 49999,
     stock: 23,
-    status: "active",
+    isActive: true,
+    isFeatured: true,
     createdDate: "2026-01-10",
   },
   {
@@ -87,7 +91,8 @@ const placeholderProducts: AdminProduct[] = [
     category: null,
     priceCents: 9999,
     stock: 0,
-    status: "inactive",
+    isActive: false,
+    isFeatured: false,
     createdDate: "2026-03-01",
   },
   {
@@ -97,7 +102,8 @@ const placeholderProducts: AdminProduct[] = [
     category: "Electronics",
     priceCents: 3999,
     stock: 720,
-    status: "active",
+    isActive: true,
+    isFeatured: false,
     createdDate: "2026-02-28",
   },
 ];
@@ -120,6 +126,7 @@ async function getProducts(): Promise<AdminProduct[]> {
         priceCents: products.price,
         stock: products.stock,
         isActive: products.isActive,
+        isFeatured: products.isFeatured,
         createdDate: products.createdAt,
       })
       .from(products)
@@ -134,24 +141,12 @@ async function getProducts(): Promise<AdminProduct[]> {
       category: row.category,
       priceCents: row.priceCents,
       stock: row.stock,
-      status: row.isActive ? ("active" as const) : ("inactive" as const),
+      isActive: row.isActive,
+      isFeatured: row.isFeatured,
       createdDate: row.createdDate.toISOString().slice(0, 10),
     }));
   } catch {
     return placeholderProducts;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getStatusBadgeClasses(status: ProductStatus): string {
-  switch (status) {
-    case "active":
-      return "bg-green-100 text-green-800 border-green-200";
-    case "inactive":
-      return "bg-red-100 text-red-800 border-red-200";
   }
 }
 
@@ -194,7 +189,7 @@ export default async function AdminProductsPage(): Promise<React.ReactElement> {
                 <TableHead>Category</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Status / Featured</TableHead>
                 <TableHead>Created</TableHead>
               </TableRow>
             </TableHeader>
@@ -215,12 +210,11 @@ export default async function AdminProductsPage(): Promise<React.ReactElement> {
                     {product.stock.toLocaleString()}
                   </TableCell>
                   <TableCell>
-                    <span
-                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClasses(product.status)}`}
-                    >
-                      {product.status.charAt(0).toUpperCase() +
-                        product.status.slice(1)}
-                    </span>
+                    <ProductToggles
+                      productId={product.id}
+                      isActive={product.isActive}
+                      isFeatured={product.isFeatured}
+                    />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {product.createdDate}
