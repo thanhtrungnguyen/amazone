@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,12 @@ import {
   RotateCcw,
   Headphones,
 } from "lucide-react";
+
+const RecentlyViewed = dynamic(
+  () =>
+    import("@/components/recently-viewed").then((mod) => mod.RecentlyViewed),
+  { ssr: false }
+);
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://amazone.com";
 
@@ -108,46 +115,6 @@ const features = [
   },
 ];
 
-// Placeholder featured products (used when DB is not connected)
-const placeholderFeatured = [
-  {
-    name: "Premium Wireless Headphones",
-    slug: "premium-wireless-headphones",
-    price: 9999,
-    compareAtPrice: 14999,
-    image: null,
-    avgRating: 450,
-    reviewCount: 128,
-  },
-  {
-    name: "Mechanical Gaming Keyboard",
-    slug: "mechanical-gaming-keyboard",
-    price: 7999,
-    compareAtPrice: undefined,
-    image: null,
-    avgRating: 470,
-    reviewCount: 312,
-  },
-  {
-    name: 'Ultra HD Smart TV 55"',
-    slug: "ultra-hd-smart-tv-55",
-    price: 49999,
-    compareAtPrice: 59999,
-    image: null,
-    avgRating: 420,
-    reviewCount: 89,
-  },
-  {
-    name: "Bluetooth Portable Speaker",
-    slug: "bluetooth-portable-speaker",
-    price: 3999,
-    compareAtPrice: undefined,
-    image: null,
-    avgRating: 430,
-    reviewCount: 245,
-  },
-];
-
 const CATEGORY_EMOJI_MAP: Record<string, string> = {
   electronics: "🎧",
   clothing: "👕",
@@ -163,20 +130,6 @@ const CATEGORY_EMOJI_MAP: Record<string, string> = {
   "pet-supplies": "🐾",
 };
 
-const placeholderCategories = [
-  { name: "Electronics", slug: "electronics", emoji: "🎧", count: 156 },
-  { name: "Clothing", slug: "clothing", emoji: "👕", count: 423 },
-  { name: "Home & Kitchen", slug: "home-kitchen", emoji: "🏠", count: 289 },
-  { name: "Books", slug: "books", emoji: "📚", count: 1024 },
-  {
-    name: "Sports & Outdoors",
-    slug: "sports-outdoors",
-    emoji: "⚽",
-    count: 178,
-  },
-  { name: "Toys & Games", slug: "toys-games", emoji: "🎮", count: 312 },
-];
-
 async function getCategories(): Promise<
   { name: string; slug: string; emoji: string; count: number }[]
 > {
@@ -189,11 +142,6 @@ async function getCategories(): Promise<
       "categories:homepage",
       async () => {
         const allCategories = await db.query.categories.findMany();
-
-        if (allCategories.length === 0) {
-          return placeholderCategories;
-        }
-
         const result = await Promise.all(
           allCategories.map(async (cat) => {
             const [row] = await db
@@ -213,13 +161,12 @@ async function getCategories(): Promise<
             };
           })
         );
-
         return result;
       },
       { ttl: 300 }
     );
   } catch {
-    return placeholderCategories;
+    return [];
   }
 }
 
@@ -242,7 +189,7 @@ async function getFeaturedProducts() {
       reviewCount: p.reviewCount,
     }));
   } catch {
-    return placeholderFeatured;
+    return [];
   }
 }
 
@@ -309,6 +256,9 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* Recently Viewed */}
+      <RecentlyViewed />
 
       <Separator />
 

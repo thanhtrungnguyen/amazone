@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { handlers } from "@/lib/auth";
-import { authRateLimiter, getClientIp } from "@/lib/rate-limit";
+import { authLimiter, getClientIp } from "@/lib/rate-limit";
 
 /**
  * Rate-limiting wrapper for auth route handlers.
@@ -16,20 +16,21 @@ function withRateLimit(
 ): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
     const ip = getClientIp(req);
-    const result = authRateLimiter.check(ip);
+    const result = await authLimiter.check(ip);
 
     if (!result.success) {
+      const retryAfter = Math.ceil(
+        (result.resetAt.getTime() - Date.now()) / 1000,
+      );
       return NextResponse.json(
         { error: "errors.rate_limit_exceeded" },
         {
           status: 429,
           headers: {
-            "Retry-After": String(
-              Math.ceil((result.reset - Date.now()) / 1000),
-            ),
+            "Retry-After": String(Math.max(retryAfter, 1)),
             "X-RateLimit-Limit": "10",
-            "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": String(result.reset),
+            "X-RateLimit-Remaining": String(result.remaining),
+            "X-RateLimit-Reset": String(result.resetAt.getTime()),
           },
         },
       );

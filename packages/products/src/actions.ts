@@ -4,6 +4,7 @@ import { db, products, categories } from "@amazone/db";
 import {
   eq,
   and,
+  ne,
   or,
   gte,
   lte,
@@ -16,7 +17,9 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import { cached, invalidateCache } from "@amazone/shared-utils";
+import { cached, invalidateCache, createLogger } from "@amazone/shared-utils";
+
+const logger = createLogger("products");
 import {
   createProductSchema,
   updateProductSchema,
@@ -253,4 +256,91 @@ export async function deleteProduct(
     await invalidateCache(`product:slug:${deleted.slug}`, "categories:*");
   }
   return !!deleted;
+}
+
+export interface RelatedProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  compareAtPrice: number | null;
+  images: (string | null)[] | null;
+  avgRating: number;
+  reviewCount: number;
+}
+
+export async function getRelatedProducts(
+  productId: string,
+  limit: number = 4
+): Promise<RelatedProduct[]> {
+  return cached(
+    `related:${productId}`,
+    async () => {
+      try {
+        // 1. Get the product's categoryId
+        const product = await db.query.products.findFirst({
+          where: eq(products.id, productId),
+          columns: { categoryId: true },
+        });
+
+        let results: RelatedProduct[] = [];
+
+        // 2. Find other active products in the same category
+        if (product?.categoryId) {
+          results = await db
+            .select({
+              id: products.id,
+              name: products.name,
+              slug: products.slug,
+              price: products.price,
+              compareAtPrice: products.compareAtPrice,
+              images: products.images,
+              avgRating: products.avgRating,
+              reviewCount: products.reviewCount,
+            })
+            .from(products)
+            .where(
+              and(
+                eq(products.categoryId, product.categoryId),
+                ne(products.id, productId),
+                eq(products.isActive, true)
+              )
+            )
+            .orderBy(desc(products.isFeatured), desc(products.avgRating))
+            .limit(limit);
+        }
+
+        // 5. Fallback to featured products if no category or no results
+        if (results.length === 0) {
+          results = await db
+            .select({
+              id: products.id,
+              name: products.name,
+              slug: products.slug,
+              price: products.price,
+              compareAtPrice: products.compareAtPrice,
+              images: products.images,
+              avgRating: products.avgRating,
+              reviewCount: products.reviewCount,
+            })
+            .from(products)
+            .where(
+              and(
+                ne(products.id, productId),
+                eq(products.isActive, true),
+                eq(products.isFeatured, true)
+              )
+            )
+            .orderBy(desc(products.avgRating))
+            .limit(limit);
+        }
+
+        return results;
+      } catch (error) {
+        logger.error({ err: error, productId }, "Failed to fetch related products");
+        return [];
+      }
+    },
+    { ttl: 300 }
+  );
 }

@@ -7,8 +7,12 @@ import {
   sendOrderConfirmation,
   sendShippingUpdate,
 } from "@/lib/email";
+import { webhookLimiter, withRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const rateLimited = await withRateLimit(request, webhookLimiter, 50);
+  if (rateLimited) return rateLimited;
+
   const payload = await request.text();
   const signature = request.headers.get("stripe-signature");
 

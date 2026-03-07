@@ -30,6 +30,10 @@ export default defineConfig({
         __dirname,
         "../../packages/orders/src/index.ts"
       ),
+      "@amazone/checkout": path.resolve(
+        __dirname,
+        "../../packages/checkout/src/index.ts"
+      ),
     },
   },
 });

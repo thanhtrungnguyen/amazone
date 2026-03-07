@@ -15,4 +15,6 @@ export {
   listProducts,
   countProducts,
   deleteProduct,
+  getRelatedProducts,
+  type RelatedProduct,
 } from "./actions";

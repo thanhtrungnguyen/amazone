@@ -1,77 +1,25 @@
 import { Suspense } from "react";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ShoppingCart, Truck, Shield, RotateCcw } from "lucide-react";
+import { Truck, Shield, RotateCcw } from "lucide-react";
 import { RatingStars } from "@amazone/shared-ui";
 import { formatPrice } from "@amazone/shared-utils";
 import { AddToCartButton } from "./add-to-cart-button";
+import { ProductImageGallery } from "./product-image-gallery";
 import { ProductReviews } from "./product-reviews";
+import { RelatedProducts } from "./related-products";
+import { TrackProductView } from "@/components/track-product-view";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
 }
 
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  price: number;
-  compareAtPrice: number | null;
-  images: (string | null)[] | null;
-  stock: number;
-  isActive: boolean;
-  isFeatured: boolean;
-  avgRating: number;
-  reviewCount: number;
-}
-
-// Placeholder products for development without DB
-const placeholderProducts: Record<string, Product> = {
-  "premium-wireless-headphones": {
-    id: "00000000-0000-0000-0000-000000000001",
-    name: "Premium Wireless Headphones",
-    slug: "premium-wireless-headphones",
-    description:
-      "Experience crystal-clear audio with our premium wireless headphones. Featuring active noise cancellation, 30-hour battery life, and ultra-comfortable memory foam ear cushions.",
-    price: 9999,
-    compareAtPrice: 14999,
-    images: ["/placeholder-product.jpg"],
-    stock: 42,
-    isActive: true,
-    isFeatured: true,
-    avgRating: 450,
-    reviewCount: 128,
-  },
-  "mechanical-gaming-keyboard": {
-    id: "00000000-0000-0000-0000-000000000005",
-    name: "Mechanical Gaming Keyboard",
-    slug: "mechanical-gaming-keyboard",
-    description:
-      "Dominate the game with our premium mechanical keyboard. Cherry MX switches, per-key RGB lighting, aircraft-grade aluminum frame, and programmable macros.",
-    price: 7999,
-    compareAtPrice: null,
-    images: ["/placeholder-product.jpg"],
-    stock: 30,
-    isActive: true,
-    isFeatured: true,
-    avgRating: 470,
-    reviewCount: 312,
-  },
-};
-
-async function fetchProduct(slug: string): Promise<Product | null> {
-  try {
-    const { getProductBySlug } = await import("@amazone/products");
-    const product = await getProductBySlug(slug);
-    return product ?? null;
-  } catch {
-    return placeholderProducts[slug] ?? null;
-  }
+async function fetchProduct(slug: string) {
+  const { getProductBySlug } = await import("@amazone/products");
+  return (await getProductBySlug(slug)) ?? null;
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://amazone.com";
@@ -112,7 +60,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
   };
 }
 
-function buildProductJsonLd(product: Product): object {
+function buildProductJsonLd(product: NonNullable<Awaited<ReturnType<typeof fetchProduct>>>): object {
   return {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -167,49 +115,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
+      <TrackProductView productId={product.id} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
       />
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Product Images */}
-        <div className="space-y-4">
-          <div className="aspect-square overflow-hidden rounded-lg border bg-gray-100">
-            {product.images?.[0] ? (
-              <Image
-                src={product.images[0]}
-                alt={product.name}
-                width={600}
-                height={600}
-                className="h-full w-full object-cover"
-                priority
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-6xl text-gray-300">
-                <ShoppingCart className="h-24 w-24" />
-              </div>
-            )}
-          </div>
-          {/* Thumbnail strip */}
-          {product.images && product.images.length > 1 && (
-            <div className="flex gap-2">
-              {product.images.map((img, i) => (
-                <div
-                  key={i}
-                  className="h-20 w-20 overflow-hidden rounded-md border"
-                >
-                  <Image
-                    src={img!}
-                    alt={`${product.name} ${i + 1}`}
-                    width={80}
-                    height={80}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <ProductImageGallery
+          images={product.images}
+          productName={product.name}
+        />
 
         {/* Product Info */}
         <div className="flex flex-col gap-4">
@@ -321,6 +237,27 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Related Products */}
+      <Suspense
+        fallback={
+          <div className="mt-12">
+            <Skeleton className="mb-6 h-8 w-48" />
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="space-y-3">
+                  <Skeleton className="aspect-square w-full rounded-lg" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="h-5 w-1/3" />
+                </div>
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <RelatedProducts productId={product.id} />
+      </Suspense>
     </div>
   );
 }

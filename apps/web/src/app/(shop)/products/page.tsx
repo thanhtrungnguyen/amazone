@@ -15,8 +15,7 @@ export const metadata = {
 
 const PRODUCTS_PER_PAGE = 20;
 
-// Placeholder data for development without DB
-interface PlaceholderProduct {
+interface ProductListItem {
   id: string;
   name: string;
   slug: string;
@@ -31,126 +30,11 @@ interface PlaceholderProduct {
   categoryId: string | null;
 }
 
-const placeholderProducts: PlaceholderProduct[] = [
-  {
-    id: "1",
-    name: "Premium Wireless Headphones",
-    slug: "premium-wireless-headphones",
-    price: 9999,
-    compareAtPrice: 14999,
-    images: null,
-    stock: 42,
-    isActive: true,
-    isFeatured: true,
-    avgRating: 450,
-    reviewCount: 128,
-    categoryId: "electronics",
-  },
-  {
-    id: "2",
-    name: 'Ultra HD Smart TV 55"',
-    slug: "ultra-hd-smart-tv-55",
-    price: 49999,
-    compareAtPrice: 59999,
-    images: null,
-    stock: 15,
-    isActive: true,
-    isFeatured: true,
-    avgRating: 420,
-    reviewCount: 89,
-    categoryId: "electronics",
-  },
-  {
-    id: "3",
-    name: "Organic Cotton T-Shirt",
-    slug: "organic-cotton-t-shirt",
-    price: 2499,
-    compareAtPrice: null,
-    images: null,
-    stock: 200,
-    isActive: true,
-    isFeatured: false,
-    avgRating: 380,
-    reviewCount: 56,
-    categoryId: "clothing",
-  },
-  {
-    id: "4",
-    name: "Stainless Steel Water Bottle",
-    slug: "stainless-steel-water-bottle",
-    price: 1999,
-    compareAtPrice: 2999,
-    images: null,
-    stock: 150,
-    isActive: true,
-    isFeatured: false,
-    avgRating: 460,
-    reviewCount: 203,
-    categoryId: "home",
-  },
-  {
-    id: "5",
-    name: "Mechanical Gaming Keyboard",
-    slug: "mechanical-gaming-keyboard",
-    price: 7999,
-    compareAtPrice: null,
-    images: null,
-    stock: 30,
-    isActive: true,
-    isFeatured: true,
-    avgRating: 470,
-    reviewCount: 312,
-    categoryId: "electronics",
-  },
-  {
-    id: "6",
-    name: "Running Shoes Pro",
-    slug: "running-shoes-pro",
-    price: 12999,
-    compareAtPrice: 15999,
-    images: null,
-    stock: 75,
-    isActive: true,
-    isFeatured: false,
-    avgRating: 440,
-    reviewCount: 167,
-    categoryId: "clothing",
-  },
-  {
-    id: "7",
-    name: "Non-Stick Cookware Set",
-    slug: "non-stick-cookware-set",
-    price: 8999,
-    compareAtPrice: 11999,
-    images: null,
-    stock: 45,
-    isActive: true,
-    isFeatured: false,
-    avgRating: 410,
-    reviewCount: 94,
-    categoryId: "home",
-  },
-  {
-    id: "8",
-    name: "Bluetooth Portable Speaker",
-    slug: "bluetooth-portable-speaker",
-    price: 3999,
-    compareAtPrice: null,
-    images: null,
-    stock: 100,
-    isActive: true,
-    isFeatured: true,
-    avgRating: 430,
-    reviewCount: 245,
-    categoryId: "electronics",
-  },
-];
-
-const placeholderCategories = [
-  { id: "electronics", name: "Electronics", slug: "electronics" },
-  { id: "clothing", name: "Clothing", slug: "clothing" },
-  { id: "home", name: "Home & Kitchen", slug: "home" },
-];
+interface CategoryItem {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 interface ProductsPageProps {
   searchParams: Promise<{
@@ -167,105 +51,64 @@ async function getProductsData(params: {
   sort?: string;
   cursor?: string;
 }): Promise<{
-  products: PlaceholderProduct[];
-  categories: typeof placeholderCategories;
+  products: ProductListItem[];
+  categories: CategoryItem[];
   totalCount: number;
   hasMore: boolean;
-  fromDb: boolean;
 }> {
-  try {
-    const { listProducts, countProducts } = await import("@amazone/products");
-    const { db } = await import("@amazone/db");
+  const { listProducts, countProducts } = await import("@amazone/products");
+  const { db } = await import("@amazone/db");
 
-    const sortBy = (params.sort as "price_asc" | "price_desc" | "newest" | "rating" | "name") || "newest";
+  const sortBy = (params.sort as "price_asc" | "price_desc" | "newest" | "rating" | "name") || "newest";
 
-    const [rawProducts, totalCount, categories] = await Promise.all([
-      listProducts({
-        search: params.search,
-        categoryId: params.category,
-        sortBy,
-        isActive: true,
-        cursor: params.cursor,
-        limit: PRODUCTS_PER_PAGE + 1, // Fetch one extra to detect hasMore
-      }),
-      countProducts({
-        search: params.search,
-        categoryId: params.category,
-        isActive: true,
-      }),
-      db.query.categories.findMany(),
-    ]);
+  const [rawProducts, totalCount, categories] = await Promise.all([
+    listProducts({
+      search: params.search,
+      categoryId: params.category,
+      sortBy,
+      isActive: true,
+      cursor: params.cursor,
+      limit: PRODUCTS_PER_PAGE + 1,
+    }),
+    countProducts({
+      search: params.search,
+      categoryId: params.category,
+      isActive: true,
+    }),
+    db.query.categories.findMany(),
+  ]);
 
-    const hasMore = rawProducts.length > PRODUCTS_PER_PAGE;
-    const products = hasMore ? rawProducts.slice(0, PRODUCTS_PER_PAGE) : rawProducts;
+  const hasMore = rawProducts.length > PRODUCTS_PER_PAGE;
+  const products = hasMore ? rawProducts.slice(0, PRODUCTS_PER_PAGE) : rawProducts;
 
-    return {
-      products: products.map((p) => ({
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        price: p.price,
-        compareAtPrice: p.compareAtPrice,
-        images: p.images,
-        stock: p.stock,
-        isActive: p.isActive,
-        isFeatured: p.isFeatured,
-        avgRating: p.avgRating,
-        reviewCount: p.reviewCount,
-        categoryId: p.categoryId,
-      })),
-      categories: categories.map((c) => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-      })),
-      totalCount,
-      hasMore,
-      fromDb: true,
-    };
-  } catch {
-    // Fallback to placeholder data when DB isn't connected
-    let filtered = [...placeholderProducts];
-
-    if (params.search) {
-      const q = params.search.toLowerCase();
-      filtered = filtered.filter((p) => p.name.toLowerCase().includes(q));
-    }
-    if (params.category) {
-      filtered = filtered.filter((p) => p.categoryId === params.category);
-    }
-    if (params.sort === "price_asc") {
-      filtered.sort((a, b) => a.price - b.price);
-    } else if (params.sort === "price_desc") {
-      filtered.sort((a, b) => b.price - a.price);
-    } else if (params.sort === "rating") {
-      filtered.sort((a, b) => b.avgRating - a.avgRating);
-    }
-
-    // Simulate cursor-based pagination for placeholder data
-    const totalCount = filtered.length;
-    if (params.cursor) {
-      const cursorIndex = filtered.findIndex((p) => p.id === params.cursor);
-      if (cursorIndex !== -1) {
-        filtered = filtered.slice(cursorIndex + 1);
-      }
-    }
-    const hasMore = filtered.length > PRODUCTS_PER_PAGE;
-    const products = hasMore ? filtered.slice(0, PRODUCTS_PER_PAGE) : filtered;
-
-    return {
-      products,
-      categories: placeholderCategories,
-      totalCount,
-      hasMore,
-      fromDb: false,
-    };
-  }
+  return {
+    products: products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      price: p.price,
+      compareAtPrice: p.compareAtPrice,
+      images: p.images,
+      stock: p.stock,
+      isActive: p.isActive,
+      isFeatured: p.isFeatured,
+      avgRating: p.avgRating,
+      reviewCount: p.reviewCount,
+      categoryId: p.categoryId,
+    })),
+    categories: categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+    })),
+    totalCount,
+    hasMore,
+  };
 }
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const params = await searchParams;
-  const { products, categories, totalCount, hasMore, fromDb } = await getProductsData(params);
+  const { products, categories, totalCount, hasMore } = await getProductsData(params);
   const lastCursor = products.length > 0 ? products[products.length - 1].id : "";
 
   return (
@@ -275,15 +118,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         <div>
           <h1 className="text-3xl font-bold">Products</h1>
           <p className="text-muted-foreground">
-            {fromDb ? (
-              <>
-                Showing {products.length} of {totalCount} product{totalCount !== 1 ? "s" : ""}
-              </>
-            ) : (
-              <>
-                {products.length} product{products.length !== 1 ? "s" : ""} found
-              </>
-            )}
+            Showing {products.length} of {totalCount} product{totalCount !== 1 ? "s" : ""}
             {params.search ? ` for "${params.search}"` : ""}
           </p>
         </div>
@@ -317,16 +152,6 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           </Link>
         ))}
       </div>
-
-      {!fromDb && (
-        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Showing placeholder data. Run{" "}
-          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-xs">
-            pnpm docker:up && pnpm db:migrate && pnpm db:seed
-          </code>{" "}
-          for real products.
-        </div>
-      )}
 
       {/* Product grid */}
       <Suspense fallback={<ProductGridSkeleton count={12} />}>
