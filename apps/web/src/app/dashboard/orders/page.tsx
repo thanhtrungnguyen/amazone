@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -7,6 +9,8 @@ import {
 import { ShoppingCart } from "lucide-react";
 import { formatPrice } from "@amazone/shared-utils";
 import { EmptyState, OrderStatusBadge } from "@amazone/shared-ui";
+import { auth } from "@/lib/auth";
+import { OrderStatusSelect } from "./order-status-select";
 
 export const metadata = {
   title: "Orders — Amazone Dashboard",
@@ -14,7 +18,14 @@ export const metadata = {
 
 interface DashboardOrder {
   id: string;
-  status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "refunded";
+  status:
+    | "pending"
+    | "confirmed"
+    | "processing"
+    | "shipped"
+    | "delivered"
+    | "cancelled"
+    | "refunded";
   totalInCents: number;
   shippingName: string;
   shippingCity: string;
@@ -22,62 +33,87 @@ interface DashboardOrder {
   itemCount: number;
 }
 
-const placeholderOrders: DashboardOrder[] = [
-  {
-    id: "ord-001",
-    status: "delivered",
-    totalInCents: 15998,
-    shippingName: "John Doe",
-    shippingCity: "New York",
-    createdAt: new Date("2025-02-28"),
-    itemCount: 2,
-  },
-  {
-    id: "ord-002",
-    status: "shipped",
-    totalInCents: 7999,
-    shippingName: "Jane Smith",
-    shippingCity: "Los Angeles",
-    createdAt: new Date("2025-03-01"),
-    itemCount: 1,
-  },
-  {
-    id: "ord-003",
-    status: "pending",
-    totalInCents: 53998,
-    shippingName: "Bob Wilson",
-    shippingCity: "Chicago",
-    createdAt: new Date("2025-03-02"),
-    itemCount: 3,
-  },
-];
-
-async function getOrders(): Promise<DashboardOrder[]> {
+async function getSellerOrders(
+  userId: string,
+  isAdmin: boolean
+): Promise<DashboardOrder[]> {
   try {
-    const { db, orders } = await import("@amazone/db");
-    const { desc } = await import("drizzle-orm");
+    const { db, orders, orderItems, products } = await import("@amazone/db");
+    const { desc, eq, count } = await import("drizzle-orm");
 
-    const result = await db.query.orders.findMany({
-      orderBy: desc(orders.createdAt),
-      limit: 20,
-    });
+    if (isAdmin) {
+      // Admins see all orders with item counts
+      const result = await db
+        .select({
+          id: orders.id,
+          status: orders.status,
+          totalInCents: orders.totalInCents,
+          shippingName: orders.shippingName,
+          shippingCity: orders.shippingCity,
+          createdAt: orders.createdAt,
+          itemCount: count(orderItems.id),
+        })
+        .from(orders)
+        .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
+        .groupBy(orders.id)
+        .orderBy(desc(orders.createdAt))
+        .limit(50);
+
+      return result.map((o) => ({
+        id: o.id,
+        status: o.status,
+        totalInCents: o.totalInCents,
+        shippingName: o.shippingName,
+        shippingCity: o.shippingCity,
+        createdAt: o.createdAt,
+        itemCount: Number(o.itemCount),
+      }));
+    }
+
+    // Sellers see only orders containing their products
+    const result = await db
+      .select({
+        id: orders.id,
+        status: orders.status,
+        totalInCents: orders.totalInCents,
+        shippingName: orders.shippingName,
+        shippingCity: orders.shippingCity,
+        createdAt: orders.createdAt,
+        itemCount: count(orderItems.id),
+      })
+      .from(orders)
+      .innerJoin(orderItems, eq(orderItems.orderId, orders.id))
+      .innerJoin(products, eq(orderItems.productId, products.id))
+      .where(eq(products.sellerId, userId))
+      .groupBy(orders.id)
+      .orderBy(desc(orders.createdAt))
+      .limit(50);
 
     return result.map((o) => ({
-      id: o.id.slice(0, 8),
+      id: o.id,
       status: o.status,
       totalInCents: o.totalInCents,
       shippingName: o.shippingName,
       shippingCity: o.shippingCity,
       createdAt: o.createdAt,
-      itemCount: 0,
+      itemCount: Number(o.itemCount),
     }));
   } catch {
-    return placeholderOrders;
+    return [];
   }
 }
 
 export default async function DashboardOrdersPage() {
-  const orders = await getOrders();
+  const session = await auth();
+  if (
+    !session?.user?.id ||
+    !["seller", "admin"].includes(session.user.role ?? "")
+  ) {
+    redirect("/sign-in");
+  }
+
+  const isAdmin = session.user.role === "admin";
+  const orders = await getSellerOrders(session.user.id, isAdmin);
 
   return (
     <div>
@@ -106,14 +142,23 @@ export default async function DashboardOrdersPage() {
               {orders.map((order) => (
                 <div
                   key={order.id}
-                  className="flex items-center gap-4 px-6 py-4"
+                  className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:gap-4"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">Order #{order.id}</p>
+                  <Link
+                    href={`/dashboard/orders/${order.id}`}
+                    className="min-w-0 flex-1 transition-colors hover:text-primary"
+                  >
+                    <p className="font-medium">
+                      Order #{order.id.slice(0, 8)}
+                    </p>
                     <p className="text-sm text-muted-foreground">
                       {order.shippingName} — {order.shippingCity}
                     </p>
-                  </div>
+                    <p className="text-sm text-muted-foreground">
+                      {order.itemCount} item{order.itemCount !== 1 ? "s" : ""}
+                    </p>
+                  </Link>
+
                   <div className="text-right">
                     <p className="font-semibold">
                       {formatPrice(order.totalInCents)}
@@ -122,7 +167,14 @@ export default async function DashboardOrdersPage() {
                       {order.createdAt.toLocaleDateString()}
                     </p>
                   </div>
-                  <OrderStatusBadge status={order.status} />
+
+                  <div className="flex items-center gap-2">
+                    <OrderStatusBadge status={order.status} />
+                    <OrderStatusSelect
+                      orderId={order.id}
+                      currentStatus={order.status}
+                    />
+                  </div>
                 </div>
               ))}
             </div>

@@ -181,36 +181,43 @@ async function getCategories(): Promise<
   { name: string; slug: string; emoji: string; count: number }[]
 > {
   try {
+    const { cached } = await import("@amazone/shared-utils");
     const { db, products } = await import("@amazone/db");
     const { eq, and, count: countFn } = await import("drizzle-orm");
 
-    const allCategories = await db.query.categories.findMany();
+    return cached(
+      "categories:homepage",
+      async () => {
+        const allCategories = await db.query.categories.findMany();
 
-    if (allCategories.length === 0) {
-      return placeholderCategories;
-    }
+        if (allCategories.length === 0) {
+          return placeholderCategories;
+        }
 
-    const result = await Promise.all(
-      allCategories.map(async (cat) => {
-        const [row] = await db
-          .select({ count: countFn() })
-          .from(products)
-          .where(
-            and(
-              eq(products.categoryId, cat.id),
-              eq(products.isActive, true)
-            )
-          );
-        return {
-          name: cat.name,
-          slug: cat.slug,
-          emoji: CATEGORY_EMOJI_MAP[cat.slug] ?? "📦",
-          count: row?.count ?? 0,
-        };
-      })
+        const result = await Promise.all(
+          allCategories.map(async (cat) => {
+            const [row] = await db
+              .select({ count: countFn() })
+              .from(products)
+              .where(
+                and(
+                  eq(products.categoryId, cat.id),
+                  eq(products.isActive, true)
+                )
+              );
+            return {
+              name: cat.name,
+              slug: cat.slug,
+              emoji: CATEGORY_EMOJI_MAP[cat.slug] ?? "📦",
+              count: row?.count ?? 0,
+            };
+          })
+        );
+
+        return result;
+      },
+      { ttl: 300 }
     );
-
-    return result;
   } catch {
     return placeholderCategories;
   }

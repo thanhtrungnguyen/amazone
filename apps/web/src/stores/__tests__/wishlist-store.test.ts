@@ -1,30 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// Mock localStorage before importing the store
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: vi.fn((key: string) => store[key] ?? null),
-    setItem: vi.fn((key: string, value: string) => {
-      store[key] = value;
-    }),
-    removeItem: vi.fn((key: string) => {
-      delete store[key];
-    }),
-    clear: vi.fn(() => {
-      store = {};
-    }),
-    get length() {
-      return Object.keys(store).length;
-    },
-    key: vi.fn((_index: number) => null),
-  };
-})();
-
-Object.defineProperty(globalThis, "localStorage", {
-  value: localStorageMock,
-  writable: true,
-});
+// Mock server actions before importing the store
+vi.mock("@/app/(shop)/wishlist/actions", () => ({
+  syncGetWishlist: vi.fn().mockResolvedValue({ success: true, data: [] }),
+  syncAddToWishlist: vi.fn().mockResolvedValue({ success: true, data: { id: "db-id" } }),
+  syncRemoveFromWishlist: vi.fn().mockResolvedValue({ success: true, data: null }),
+  syncClearWishlist: vi.fn().mockResolvedValue({ success: true, data: null }),
+}));
 
 import { useWishlistStore } from "../wishlist-store";
 
@@ -41,9 +23,8 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
 
 describe("useWishlistStore", () => {
   beforeEach(() => {
-    // Reset store state before each test
-    useWishlistStore.setState({ items: [] });
-    localStorageMock.clear();
+    // Reset store state — keep isHydrated false so no background sync runs
+    useWishlistStore.setState({ items: [], isHydrated: false, isSyncing: false });
   });
 
   describe("addItem", () => {

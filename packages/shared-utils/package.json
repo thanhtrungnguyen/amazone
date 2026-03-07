@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/api-logs": "^0.57.0"
+    "@opentelemetry/api-logs": "^0.57.0",
+    "ioredis": "^5.10.0"
   },
   "scripts": {
     "test": "vitest run"

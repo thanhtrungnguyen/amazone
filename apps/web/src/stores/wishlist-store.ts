@@ -1,7 +1,12 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import {
+  syncGetWishlist,
+  syncAddToWishlist,
+  syncRemoveFromWishlist,
+  syncClearWishlist,
+} from "@/app/(shop)/wishlist/actions";
 
 export interface WishlistItem {
   productId: string;
@@ -14,65 +19,107 @@ export interface WishlistItem {
 
 interface WishlistStore {
   items: WishlistItem[];
+  isHydrated: boolean;
+  isSyncing: boolean;
+
   addItem: (product: Omit<WishlistItem, "addedAt">) => void;
   removeItem: (productId: string) => void;
   isInWishlist: (productId: string) => boolean;
   clearWishlist: () => void;
+
+  hydrate: () => Promise<void>;
 }
 
-export const useWishlistStore = create<WishlistStore>()(
-  persist(
-    (set, get) => ({
-      items: [],
+export const useWishlistStore = create<WishlistStore>((set, get) => ({
+  items: [],
+  isHydrated: false,
+  isSyncing: false,
 
-      addItem: (product) =>
-        set((state) => {
-          if (state.items.some((i) => i.productId === product.productId)) {
-            return state;
-          }
-          return {
-            items: [...state.items, { ...product, addedAt: new Date() }],
-          };
-        }),
+  hydrate: async () => {
+    if (get().isHydrated) return;
 
-      removeItem: (productId) =>
-        set((state) => ({
-          items: state.items.filter((i) => i.productId !== productId),
-        })),
-
-      isInWishlist: (productId) =>
-        get().items.some((i) => i.productId === productId),
-
-      clearWishlist: () => set({ items: [] }),
-    }),
-    {
-      name: "amazone-wishlist",
-      partialize: (state) => ({ items: state.items }),
-      storage: {
-        getItem: (name) => {
-          const str = localStorage.getItem(name);
-          if (!str) return null;
-          const parsed = JSON.parse(str) as {
-            state: { items: (WishlistItem & { addedAt: string })[] };
-          };
-          return {
-            ...parsed,
-            state: {
-              ...parsed.state,
-              items: parsed.state.items.map((item) => ({
-                ...item,
-                addedAt: new Date(item.addedAt),
-              })),
-            },
-          };
-        },
-        setItem: (name, value) => {
-          localStorage.setItem(name, JSON.stringify(value));
-        },
-        removeItem: (name) => {
-          localStorage.removeItem(name);
-        },
-      },
+    set({ isSyncing: true });
+    try {
+      const result = await syncGetWishlist();
+      if (result.success) {
+        set({
+          items: result.data.map((item) => ({
+            productId: item.productId,
+            name: item.name,
+            slug: item.slug,
+            price: item.price,
+            image: item.image,
+            addedAt: new Date(item.createdAt),
+          })),
+          isHydrated: true,
+        });
+      } else {
+        set({ isHydrated: true });
+      }
+    } catch {
+      set({ isHydrated: true });
+    } finally {
+      set({ isSyncing: false });
     }
-  )
-);
+  },
+
+  addItem: (product) => {
+    if (get().items.some((i) => i.productId === product.productId)) return;
+
+    const prevItems = get().items;
+    const newItem: WishlistItem = { ...product, addedAt: new Date() };
+
+    // Optimistic update
+    set({ items: [...prevItems, newItem] });
+
+    // Background sync
+    if (get().isHydrated) {
+      set({ isSyncing: true });
+      syncAddToWishlist(product.productId)
+        .then((result) => {
+          if (!result.success) set({ items: prevItems });
+        })
+        .catch(() => set({ items: prevItems }))
+        .finally(() => set({ isSyncing: false }));
+    }
+  },
+
+  removeItem: (productId) => {
+    const prevItems = get().items;
+
+    // Optimistic update
+    set({ items: prevItems.filter((i) => i.productId !== productId) });
+
+    // Background sync
+    if (get().isHydrated) {
+      set({ isSyncing: true });
+      syncRemoveFromWishlist(productId)
+        .then((result) => {
+          if (!result.success) set({ items: prevItems });
+        })
+        .catch(() => set({ items: prevItems }))
+        .finally(() => set({ isSyncing: false }));
+    }
+  },
+
+  isInWishlist: (productId) =>
+    get().items.some((i) => i.productId === productId),
+
+  clearWishlist: () => {
+    const prevItems = get().items;
+
+    // Optimistic update
+    set({ items: [] });
+
+    // Background sync
+    if (get().isHydrated) {
+      set({ isSyncing: true });
+      syncClearWishlist()
+        .then((result) => {
+          if (!result.success) set({ items: prevItems });
+        })
+        .catch(() => set({ items: prevItems }))
+        .finally(() => set({ isSyncing: false }));
+    }
+  },
+}));

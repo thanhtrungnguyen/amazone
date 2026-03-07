@@ -20,7 +20,6 @@ import {
   ShoppingCart,
   TrendingUp,
   BarChart3,
-  Eye,
   Star,
 } from "lucide-react";
 import { formatPrice } from "@amazone/shared-utils";
@@ -74,7 +73,7 @@ interface AnalyticsData {
 async function getAnalyticsData(userId: string, isAdmin: boolean): Promise<AnalyticsData> {
   try {
     const { db, products, orders, orderItems, reviews } = await import("@amazone/db");
-    const { eq, and, ne, desc, sum, count, sql, inArray } = await import("drizzle-orm");
+    const { eq, and, ne, desc, sum, sql, inArray } = await import("drizzle-orm");
 
     // Get seller's product IDs (admins see all)
     const sellerProducts = isAdmin
@@ -282,7 +281,7 @@ export default async function AnalyticsPage(): Promise<React.ReactElement> {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">{stat.change}</p>
+              <p className="text-xs text-muted-foreground">&nbsp;</p>
             </CardContent>
           </Card>
         ))}

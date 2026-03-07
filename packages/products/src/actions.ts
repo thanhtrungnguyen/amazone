@@ -1,7 +1,22 @@
 "use server";
 
-import { db, products } from "@amazone/db";
-import { eq, and, gte, lte, ilike, desc, asc, gt, lt, count } from "drizzle-orm";
+import { db, products, categories } from "@amazone/db";
+import {
+  eq,
+  and,
+  or,
+  gte,
+  lte,
+  ilike,
+  desc,
+  asc,
+  gt,
+  lt,
+  count,
+  sql,
+  type SQL,
+} from "drizzle-orm";
+import { cached, invalidateCache } from "@amazone/shared-utils";
 import {
   createProductSchema,
   updateProductSchema,
@@ -10,6 +25,30 @@ import {
   type UpdateProductInput,
   type ProductFilterInput,
 } from "./types";
+
+/**
+ * Build a full-text search condition that combines tsvector matching
+ * with an ilike fallback for partial word matches.
+ */
+function buildSearchCondition(search: string): SQL {
+  const tsVector = sql`to_tsvector('english', ${products.name} || ' ' || coalesce(${products.description}, ''))`;
+  const tsQuery = sql`plainto_tsquery('english', ${search})`;
+  const ftsMatch = sql`${tsVector} @@ ${tsQuery}`;
+  return or(
+    sql`${ftsMatch}`,
+    ilike(products.name, `%${search}%`),
+    ilike(products.description, `%${search}%`)
+  )!;
+}
+
+/**
+ * Build a ts_rank expression for relevance ordering.
+ */
+function buildSearchRank(search: string): SQL {
+  const tsVector = sql`to_tsvector('english', ${products.name} || ' ' || coalesce(${products.description}, ''))`;
+  const tsQuery = sql`plainto_tsquery('english', ${search})`;
+  return sql`ts_rank(${tsVector}, ${tsQuery})`;
+}
 
 function generateSlug(name: string): string {
   return name
@@ -34,6 +73,7 @@ export async function createProduct(
     })
     .returning();
 
+  await invalidateCache("product:slug:*", "categories:*");
   return product;
 }
 
@@ -53,6 +93,9 @@ export async function updateProduct(
     .where(and(eq(products.id, productId), eq(products.sellerId, sellerId)))
     .returning();
 
+  if (product) {
+    await invalidateCache(`product:slug:${product.slug}`, "categories:*");
+  }
   return product;
 }
 
@@ -71,20 +114,25 @@ export async function getProduct(
 export async function getProductBySlug(
   slug: string
 ): Promise<typeof products.$inferSelect | undefined> {
-  return db.query.products.findFirst({
-    where: eq(products.slug, slug),
-    with: {
-      category: true,
-      seller: { columns: { id: true, name: true, image: true } },
-    },
-  });
+  return cached(
+    `product:slug:${slug}`,
+    () =>
+      db.query.products.findFirst({
+        where: eq(products.slug, slug),
+        with: {
+          category: true,
+          seller: { columns: { id: true, name: true, image: true } },
+        },
+      }),
+    { ttl: 300 }
+  );
 }
 
 export async function listProducts(
   input: ProductFilterInput
 ): Promise<(typeof products.$inferSelect)[]> {
   const filters = productFilterSchema.parse(input);
-  const conditions = [];
+  const conditions: SQL[] = [];
 
   if (filters.categoryId) {
     conditions.push(eq(products.categoryId, filters.categoryId));
@@ -96,7 +144,7 @@ export async function listProducts(
     conditions.push(lte(products.price, filters.maxPrice));
   }
   if (filters.search) {
-    conditions.push(ilike(products.name, `%${filters.search}%`));
+    conditions.push(buildSearchCondition(filters.search));
   }
   if (filters.isActive !== undefined) {
     conditions.push(eq(products.isActive, filters.isActive));
@@ -114,6 +162,31 @@ export async function listProducts(
     }
   }
 
+  // When search is active, use ts_rank for relevance ordering by default.
+  // Otherwise, use the requested sort order.
+  if (filters.search) {
+    const rankExpr = buildSearchRank(filters.search);
+
+    // Use db.select() so we can inject ts_rank ordering.
+    // Left join categories to match the previous `with: { category: true }` behavior.
+    const rows = await db
+      .select({
+        product: products,
+        category: categories,
+      })
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(rankExpr))
+      .limit(filters.limit);
+
+    return rows.map((row) => ({
+      ...row.product,
+      category: row.category,
+    })) as (typeof products.$inferSelect)[];
+  }
+
+  // Non-search path: keep the original relational query for simplicity
   const orderBy = {
     price_asc: asc(products.price),
     price_desc: desc(products.price),
@@ -150,7 +223,7 @@ export async function countProducts(
     conditions.push(lte(products.price, filters.maxPrice));
   }
   if (filters.search) {
-    conditions.push(ilike(products.name, `%${filters.search}%`));
+    conditions.push(buildSearchCondition(filters.search));
   }
   if (filters.isActive !== undefined) {
     conditions.push(eq(products.isActive, filters.isActive));
@@ -174,7 +247,10 @@ export async function deleteProduct(
   const [deleted] = await db
     .delete(products)
     .where(and(eq(products.id, productId), eq(products.sellerId, sellerId)))
-    .returning({ id: products.id });
+    .returning({ id: products.id, slug: products.slug });
 
+  if (deleted) {
+    await invalidateCache(`product:slug:${deleted.slug}`, "categories:*");
+  }
   return !!deleted;
 }

@@ -1,7 +1,18 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+
+// Mock server actions before importing the store — the module path must match
+// the import used in cart-store.ts.
+vi.mock("@/app/(shop)/cart/actions", () => ({
+  syncAddToCart: vi.fn().mockResolvedValue({ success: true, data: { id: "db-id" } }),
+  syncRemoveFromCart: vi.fn().mockResolvedValue({ success: true, data: null }),
+  syncUpdateCartItem: vi.fn().mockResolvedValue({ success: true, data: null }),
+  syncGetCart: vi.fn().mockResolvedValue({ success: true, data: { items: [], totalItems: 0, totalInCents: 0 } }),
+  syncClearCart: vi.fn().mockResolvedValue({ success: true, data: null }),
+}));
+
 import { useCartStore } from "../cart-store";
 
-function makeItem(overrides: Partial<Parameters<typeof useCartStore.getState>["0"]["items"][0]> = {}) {
+function makeItem(overrides: Partial<{ id: string; productId: string; name: string; price: number; image: string | null; quantity: number }> = {}) {
   return {
     id: "item-1",
     productId: "prod-1",
@@ -14,8 +25,14 @@ function makeItem(overrides: Partial<Parameters<typeof useCartStore.getState>["0
 
 describe("useCartStore", () => {
   beforeEach(() => {
-    // Reset store state before each test
-    useCartStore.setState({ items: [], isOpen: false });
+    // Reset store state before each test — keep isHydrated false so
+    // no background server action calls are triggered during unit tests.
+    useCartStore.setState({
+      items: [],
+      isOpen: false,
+      isHydrated: false,
+      isSyncing: false,
+    });
   });
 
   describe("addItem", () => {
@@ -60,6 +77,13 @@ describe("useCartStore", () => {
 
       const items = useCartStore.getState().items;
       expect(items).toHaveLength(2);
+    });
+
+    it("clamps quantity to a maximum of 99", () => {
+      useCartStore.getState().addItem(makeItem({ quantity: 150 }));
+
+      const items = useCartStore.getState().items;
+      expect(items[0].quantity).toBe(99);
     });
   });
 
@@ -117,6 +141,14 @@ describe("useCartStore", () => {
 
       expect(useCartStore.getState().items[0].quantity).toBe(10);
       expect(useCartStore.getState().items[1].quantity).toBe(1);
+    });
+
+    it("clamps quantity to a maximum of 99", () => {
+      useCartStore.getState().addItem(makeItem({ id: "item-1" }));
+
+      useCartStore.getState().updateQuantity("item-1", 200);
+
+      expect(useCartStore.getState().items[0].quantity).toBe(99);
     });
   });
 
@@ -184,6 +216,16 @@ describe("useCartStore", () => {
       expect(useCartStore.getState().isOpen).toBe(true);
       useCartStore.getState().toggle();
       expect(useCartStore.getState().isOpen).toBe(false);
+    });
+  });
+
+  describe("hydration state", () => {
+    it("starts not hydrated", () => {
+      expect(useCartStore.getState().isHydrated).toBe(false);
+    });
+
+    it("starts not syncing", () => {
+      expect(useCartStore.getState().isSyncing).toBe(false);
     });
   });
 });

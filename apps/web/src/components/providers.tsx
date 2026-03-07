@@ -2,6 +2,8 @@
 
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "@/components/theme-provider";
+import { CartHydrator } from "@/components/cart-hydrator";
+import { WishlistHydrator } from "@/components/wishlist-hydrator";
 
 export function Providers({
   children,
@@ -16,6 +18,8 @@ export function Providers({
         enableSystem
         disableTransitionOnChange
       >
+        <CartHydrator />
+        <WishlistHydrator />
         {children}
       </ThemeProvider>
     </SessionProvider>

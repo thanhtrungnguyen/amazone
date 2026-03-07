@@ -22,6 +22,14 @@ export default defineConfig({
         __dirname,
         "../../packages/cart/src/index.ts"
       ),
+      "@amazone/db": path.resolve(
+        __dirname,
+        "../../packages/db/src/index.ts"
+      ),
+      "@amazone/orders": path.resolve(
+        __dirname,
+        "../../packages/orders/src/index.ts"
+      ),
     },
   },
 });

@@ -21,3 +21,6 @@ export {
 } from "./constants";
 
 export { logger, createLogger } from "./logger";
+
+export { getRedis } from "./redis";
+export { cached, invalidateCache } from "./cache";
