@@ -8,10 +8,13 @@ import { Truck, Shield, RotateCcw } from "lucide-react";
 import { RatingStars } from "@amazone/shared-ui";
 import { formatPrice } from "@amazone/shared-utils";
 import { AddToCartButton } from "./add-to-cart-button";
+import { AddToCompareButton } from "@/components/add-to-compare-button";
 import { ProductImageGallery } from "./product-image-gallery";
 import { ProductReviews } from "./product-reviews";
 import { RelatedProducts } from "./related-products";
 import { TrackProductView } from "@/components/track-product-view";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import type { BreadcrumbItem } from "@/components/breadcrumbs";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -113,8 +116,26 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const productJsonLd = buildProductJsonLd(product);
 
+  const category = (product as Record<string, unknown>).category as
+    | { name: string; slug: string }
+    | null
+    | undefined;
+
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: "Home", href: "/" },
+    { label: "Products", href: "/products" },
+  ];
+  if (category) {
+    breadcrumbItems.push({
+      label: category.name,
+      href: `/categories/${category.slug}`,
+    });
+  }
+  breadcrumbItems.push({ label: product.name });
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
+      <Breadcrumbs items={breadcrumbItems} />
       <TrackProductView productId={product.id} />
       <script
         type="application/ld+json"
@@ -174,8 +195,22 @@ export default async function ProductPage({ params }: ProductPageProps) {
             )}
           </div>
 
-          {/* Add to Cart */}
-          <AddToCartButton product={product} />
+          {/* Add to Cart + Compare */}
+          <div className="flex items-start gap-2">
+            <div className="flex-1">
+              <AddToCartButton product={product} />
+            </div>
+            <AddToCompareButton
+              product={{
+                id: product.id,
+                name: product.name,
+                slug: product.slug,
+                price: product.price,
+                image: product.images?.[0] ?? null,
+              }}
+              className="mt-[42px]"
+            />
+          </div>
 
           <Separator />
 

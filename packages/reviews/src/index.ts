@@ -10,4 +10,5 @@ export {
   updateReview,
   deleteReview,
   getProductReviews,
+  getUserReviews,
 } from "./actions";

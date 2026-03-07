@@ -9,6 +9,7 @@ import { ProductCard } from "@amazone/shared-ui";
 import { formatPrice } from "@amazone/shared-utils";
 import { Zap, Tag, ArrowRight } from "lucide-react";
 import { CountdownTimer } from "./countdown-timer";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 
 export const revalidate = 60;
 
@@ -325,6 +326,13 @@ export default async function DealsPage(): Promise<React.ReactElement> {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
+      <Breadcrumbs
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Today's Deals" },
+        ]}
+      />
+
       {/* ---- Hero Banner ---- */}
       <section className="mb-10 rounded-xl bg-gradient-to-r from-red-600 to-orange-500 px-6 py-12 text-white sm:px-12">
         <div className="flex flex-col gap-3">

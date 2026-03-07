@@ -115,6 +115,21 @@ export async function getProductReviews(
   });
 }
 
+export async function getUserReviews(
+  userId: string,
+  limit = 50
+): Promise<(typeof reviews.$inferSelect & { product: { name: string; slug: string; images: string[] | null } })[]> {
+  const results = await db.query.reviews.findMany({
+    where: eq(reviews.userId, userId),
+    orderBy: desc(reviews.createdAt),
+    limit,
+    with: {
+      product: { columns: { name: true, slug: true, images: true } },
+    },
+  });
+  return results as (typeof reviews.$inferSelect & { product: { name: string; slug: string; images: string[] | null } })[];
+}
+
 async function updateProductRating(productId: string): Promise<void> {
   const result = await db
     .select({

@@ -1,7 +1,7 @@
 "use server";
 
 import { db, orders, orderItems } from "@amazone/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lt } from "drizzle-orm";
 import {
   createOrderSchema,
   updateOrderStatusSchema,
@@ -69,7 +69,7 @@ export async function listOrders(
   const conditions = [eq(orders.userId, userId)];
 
   if (cursor) {
-    conditions.push(eq(orders.id, cursor));
+    conditions.push(lt(orders.createdAt, new Date(cursor)));
   }
 
   return db.query.orders.findMany({

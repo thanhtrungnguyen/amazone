@@ -5,6 +5,8 @@ import { ProductGridSkeleton, ProductCard, EmptyState } from "@amazone/shared-ui
 import { Package } from "lucide-react";
 import { ProductSearch } from "./product-search";
 import { PaginationControls } from "@/components/pagination-controls";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import type { BreadcrumbItem } from "@/components/breadcrumbs";
 
 export const revalidate = 60;
 
@@ -111,8 +113,21 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const { products, categories, totalCount, hasMore } = await getProductsData(params);
   const lastCursor = products.length > 0 ? products[products.length - 1].id : "";
 
+  const activeCategoryName = params.category
+    ? categories.find((c) => c.id === params.category)?.name
+    : undefined;
+
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: "Home", href: "/" },
+    { label: "Products", href: activeCategoryName ? "/products" : undefined },
+  ];
+  if (activeCategoryName) {
+    breadcrumbItems.push({ label: activeCategoryName });
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
+      <Breadcrumbs items={breadcrumbItems} />
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

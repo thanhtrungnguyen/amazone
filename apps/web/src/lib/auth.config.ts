@@ -29,7 +29,7 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const pathname = nextUrl.pathname;
 
-      const protectedRoutes = ["/dashboard", "/admin", "/orders", "/settings"];
+      const protectedRoutes = ["/dashboard", "/admin", "/orders", "/settings", "/profile"];
       const adminRoutes = ["/admin"];
       const authRoutes = ["/sign-in", "/sign-up"];
 

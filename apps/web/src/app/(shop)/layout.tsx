@@ -1,6 +1,7 @@
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { CartDrawer } from "@/components/layout/cart-drawer";
+import { CompareBar } from "@/components/compare-bar";
 
 export default function ShopLayout({
   children,
@@ -13,6 +14,7 @@ export default function ShopLayout({
       <main className="flex-1">{children}</main>
       <SiteFooter />
       <CartDrawer />
+      <CompareBar />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   pgEnum,
   uniqueIndex,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // ─── Enums ──────────────────────────────────────────────
@@ -40,6 +41,11 @@ export const users = pgTable("users", {
   image: text("image"),
   hashedPassword: text("hashed_password"),
   role: userRoleEnum("role").default("customer").notNull(),
+  notificationPreferences: jsonb("notification_preferences").$type<{
+    orderUpdates: boolean;
+    shippingUpdates: boolean;
+    promotions: boolean;
+  }>(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 });

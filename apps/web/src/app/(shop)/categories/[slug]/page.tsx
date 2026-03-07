@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 import { ProductCard } from "@amazone/shared-ui";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 
 export async function generateMetadata({
   params,
@@ -155,15 +155,13 @@ export default async function CategoryPage({
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Breadcrumb */}
-      <div className="mb-6">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/categories">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            All Categories
-          </Link>
-        </Button>
-      </div>
+      <Breadcrumbs
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Categories", href: "/categories" },
+          { label: category.name },
+        ]}
+      />
 
       {/* Header */}
       <div className="mb-8">
