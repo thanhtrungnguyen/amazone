@@ -23,10 +23,6 @@ export const metadata = {
   description: "Review, moderate, and manage all products on the platform.",
 };
 
-// ---------------------------------------------------------------------------
-// Placeholder data
-// ---------------------------------------------------------------------------
-
 interface AdminProduct {
   id: string;
   name: string;
@@ -38,75 +34,6 @@ interface AdminProduct {
   isFeatured: boolean;
   createdDate: string;
 }
-
-const placeholderProducts: AdminProduct[] = [
-  {
-    id: "prod-001",
-    name: 'Ultra HD Monitor 27"',
-    seller: "Alice Johnson",
-    category: "Electronics",
-    priceCents: 34999,
-    stock: 142,
-    isActive: true,
-    isFeatured: true,
-    createdDate: "2025-12-01",
-  },
-  {
-    id: "prod-002",
-    name: "Wireless Mechanical Keyboard",
-    seller: "Alice Johnson",
-    category: "Electronics",
-    priceCents: 12999,
-    stock: 305,
-    isActive: true,
-    isFeatured: false,
-    createdDate: "2025-12-15",
-  },
-  {
-    id: "prod-003",
-    name: "Noise Cancelling Headphones Pro",
-    seller: "Charlie Nguyen",
-    category: "Electronics",
-    priceCents: 24900,
-    stock: 58,
-    isActive: true,
-    isFeatured: false,
-    createdDate: "2026-02-20",
-  },
-  {
-    id: "prod-004",
-    name: "Ergonomic Office Chair",
-    seller: "Charlie Nguyen",
-    category: "Home & Kitchen",
-    priceCents: 49999,
-    stock: 23,
-    isActive: true,
-    isFeatured: true,
-    createdDate: "2026-01-10",
-  },
-  {
-    id: "prod-005",
-    name: "Counterfeit Designer Watch",
-    seller: "Bob Smith",
-    category: null,
-    priceCents: 9999,
-    stock: 0,
-    isActive: false,
-    isFeatured: false,
-    createdDate: "2026-03-01",
-  },
-  {
-    id: "prod-006",
-    name: "USB-C Hub 7-in-1",
-    seller: "Alice Johnson",
-    category: "Electronics",
-    priceCents: 3999,
-    stock: 720,
-    isActive: true,
-    isFeatured: false,
-    createdDate: "2026-02-28",
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Data fetcher
@@ -146,7 +73,7 @@ async function getProducts(): Promise<AdminProduct[]> {
       createdDate: row.createdDate.toISOString().slice(0, 10),
     }));
   } catch {
-    return placeholderProducts;
+    return [];
   }
 }
 

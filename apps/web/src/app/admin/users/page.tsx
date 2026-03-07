@@ -22,10 +22,6 @@ export const metadata = {
   description: "Manage platform users, roles, and account statuses.",
 };
 
-// ---------------------------------------------------------------------------
-// Placeholder data
-// ---------------------------------------------------------------------------
-
 type UserRole = "admin" | "seller" | "customer";
 
 interface AdminUser {
@@ -36,57 +32,6 @@ interface AdminUser {
   joinedDate: string;
   orderCount: number;
 }
-
-const placeholderUsers: AdminUser[] = [
-  {
-    id: "usr-001",
-    name: "Thanh Tran",
-    email: "thanh@amazone.com",
-    role: "admin",
-    joinedDate: "2025-01-15",
-    orderCount: 0,
-  },
-  {
-    id: "usr-002",
-    name: "Alice Johnson",
-    email: "alice.j@example.com",
-    role: "seller",
-    joinedDate: "2025-03-22",
-    orderCount: 5,
-  },
-  {
-    id: "usr-003",
-    name: "Bob Smith",
-    email: "bob.smith@example.com",
-    role: "customer",
-    joinedDate: "2025-06-10",
-    orderCount: 12,
-  },
-  {
-    id: "usr-004",
-    name: "Charlie Nguyen",
-    email: "charlie.n@example.com",
-    role: "seller",
-    joinedDate: "2025-08-05",
-    orderCount: 3,
-  },
-  {
-    id: "usr-005",
-    name: "Diana Lee",
-    email: "diana.lee@example.com",
-    role: "customer",
-    joinedDate: "2025-11-18",
-    orderCount: 8,
-  },
-  {
-    id: "usr-006",
-    name: "Ethan Park",
-    email: "ethan.p@example.com",
-    role: "customer",
-    joinedDate: "2026-01-03",
-    orderCount: 1,
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Data fetcher
@@ -120,7 +65,7 @@ async function getUsers(): Promise<AdminUser[]> {
       orderCount: row.orderCount,
     }));
   } catch {
-    return placeholderUsers;
+    return [];
   }
 }
 

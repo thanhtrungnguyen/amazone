@@ -24,6 +24,7 @@ export interface WishlistDbItem {
   slug: string;
   price: number;
   image: string | null;
+  stock: number;
   createdAt: Date;
 }
 
@@ -46,6 +47,7 @@ export async function syncGetWishlist(): Promise<
             slug: true,
             price: true,
             images: true,
+            stock: true,
           },
         },
       },
@@ -61,6 +63,7 @@ export async function syncGetWishlist(): Promise<
         slug: item.product.slug,
         price: item.product.price,
         image: item.product.images?.[0] ?? null,
+        stock: item.product.stock,
         createdAt: item.createdAt,
       })),
     };

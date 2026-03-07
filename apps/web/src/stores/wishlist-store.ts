@@ -14,6 +14,7 @@ export interface WishlistItem {
   slug: string;
   price: number;
   image: string | null;
+  stock?: number;
   addedAt: Date;
 }
 
@@ -49,6 +50,7 @@ export const useWishlistStore = create<WishlistStore>((set, get) => ({
             slug: item.slug,
             price: item.price,
             image: item.image,
+            stock: item.stock,
             addedAt: new Date(item.createdAt),
           })),
           isHydrated: true,

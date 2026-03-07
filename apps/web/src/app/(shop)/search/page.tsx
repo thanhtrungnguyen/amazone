@@ -3,113 +3,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SearchX } from "lucide-react";
 import { ProductCard } from "@amazone/shared-ui";
+import { listProducts } from "@amazone/products";
 
 export const metadata = {
   title: "Search — Amazone",
 };
 
-interface SearchProduct {
-  id: string;
-  name: string;
-  slug: string;
-  price: number;
-  compareAtPrice: number | null;
-  images: (string | null)[] | null;
-  avgRating: number;
-  reviewCount: number;
-}
-
-const placeholderProducts: SearchProduct[] = [
-  {
-    id: "1",
-    name: "Premium Wireless Headphones",
-    slug: "premium-wireless-headphones",
-    price: 9999,
-    compareAtPrice: 12999,
-    images: null,
-    avgRating: 450,
-    reviewCount: 128,
-  },
-  {
-    id: "2",
-    name: "Mechanical Gaming Keyboard",
-    slug: "mechanical-gaming-keyboard",
-    price: 7999,
-    compareAtPrice: null,
-    images: null,
-    avgRating: 470,
-    reviewCount: 312,
-  },
-  {
-    id: "3",
-    name: "USB-C Fast Charger",
-    slug: "usb-c-fast-charger",
-    price: 2499,
-    compareAtPrice: 3499,
-    images: null,
-    avgRating: 440,
-    reviewCount: 89,
-  },
-  {
-    id: "4",
-    name: "Bluetooth Portable Speaker",
-    slug: "bluetooth-portable-speaker",
-    price: 3999,
-    compareAtPrice: null,
-    images: null,
-    avgRating: 430,
-    reviewCount: 245,
-  },
-  {
-    id: "5",
-    name: "Ergonomic Office Chair",
-    slug: "ergonomic-office-chair",
-    price: 29999,
-    compareAtPrice: 39999,
-    images: null,
-    avgRating: 460,
-    reviewCount: 67,
-  },
-  {
-    id: "6",
-    name: "4K Ultra HD Monitor",
-    slug: "4k-ultra-hd-monitor",
-    price: 44999,
-    compareAtPrice: null,
-    images: null,
-    avgRating: 480,
-    reviewCount: 203,
-  },
-];
-
-async function searchProducts(query: string): Promise<SearchProduct[]> {
+async function searchProducts(query: string): Promise<Awaited<ReturnType<typeof listProducts>>> {
   if (!query.trim()) return [];
 
   try {
-    const { listProducts } = await import("@amazone/products");
-    const products = await listProducts({
+    return await listProducts({
       search: query,
       sortBy: "rating",
       limit: 24,
     });
-    return products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      price: p.price,
-      compareAtPrice: p.compareAtPrice,
-      images: p.images,
-      avgRating: p.avgRating,
-      reviewCount: p.reviewCount,
-    }));
   } catch {
-    // Fallback: filter placeholder by query
-    const q = query.toLowerCase();
-    return placeholderProducts.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.slug.includes(q)
-    );
+    return [];
   }
 }
 

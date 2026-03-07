@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 // ---------------------------------------------------------------------------
-// Placeholder data -- used when DB is not connected
+// Types
 // ---------------------------------------------------------------------------
 
 interface DealProduct {
@@ -38,130 +38,16 @@ interface DealProduct {
   reviewCount: number;
 }
 
-const placeholderDeals: DealProduct[] = [
-  {
-    name: "Premium Wireless Headphones",
-    slug: "premium-wireless-headphones",
-    price: 9999,
-    compareAtPrice: 14999,
-    image: null,
-    avgRating: 450,
-    reviewCount: 128,
-  },
-  {
-    name: 'Ultra HD Smart TV 55"',
-    slug: "ultra-hd-smart-tv-55",
-    price: 49999,
-    compareAtPrice: 59999,
-    image: null,
-    avgRating: 420,
-    reviewCount: 89,
-  },
-  {
-    name: "Running Shoes Pro",
-    slug: "running-shoes-pro",
-    price: 12999,
-    compareAtPrice: 15999,
-    image: null,
-    avgRating: 440,
-    reviewCount: 167,
-  },
-  {
-    name: "Non-Stick Cookware Set",
-    slug: "non-stick-cookware-set",
-    price: 8999,
-    compareAtPrice: 11999,
-    image: null,
-    avgRating: 410,
-    reviewCount: 94,
-  },
-  {
-    name: "Stainless Steel Water Bottle",
-    slug: "stainless-steel-water-bottle",
-    price: 1999,
-    compareAtPrice: 2999,
-    image: null,
-    avgRating: 460,
-    reviewCount: 203,
-  },
-  {
-    name: "Smart Fitness Tracker",
-    slug: "smart-fitness-tracker",
-    price: 5999,
-    compareAtPrice: 8999,
-    image: null,
-    avgRating: 430,
-    reviewCount: 341,
-  },
-];
-
 interface LightningDeal extends DealProduct {
   claimedPercent: number;
 }
-
-// ---------------------------------------------------------------------------
-// Placeholder deal of the day -- used when DB is not connected
-// ---------------------------------------------------------------------------
-
-const placeholderDealOfTheDay: DealProduct = {
-  name: "Noise-Cancelling Over-Ear Headphones Pro",
-  slug: "noise-cancelling-headphones-pro",
-  price: 19999,
-  compareAtPrice: 34999,
-  image: null,
-  avgRating: 480,
-  reviewCount: 1024,
-};
-
-const placeholderLightningDeals: LightningDeal[] = [
-  {
-    name: "Portable Bluetooth Earbuds",
-    slug: "portable-bluetooth-earbuds",
-    price: 2999,
-    compareAtPrice: 5999,
-    image: null,
-    avgRating: 440,
-    reviewCount: 587,
-    claimedPercent: 76,
-  },
-  {
-    name: "Robot Vacuum Cleaner",
-    slug: "robot-vacuum-cleaner",
-    price: 19999,
-    compareAtPrice: 29999,
-    image: null,
-    avgRating: 460,
-    reviewCount: 213,
-    claimedPercent: 54,
-  },
-  {
-    name: "Wireless Charging Pad",
-    slug: "wireless-charging-pad",
-    price: 1499,
-    compareAtPrice: 2999,
-    image: null,
-    avgRating: 400,
-    reviewCount: 432,
-    claimedPercent: 89,
-  },
-  {
-    name: "Ergonomic Office Chair",
-    slug: "ergonomic-office-chair",
-    price: 24999,
-    compareAtPrice: 39999,
-    image: null,
-    avgRating: 470,
-    reviewCount: 156,
-    claimedPercent: 32,
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Data fetching with dynamic import + fallback
 // ---------------------------------------------------------------------------
 
 interface DealsData {
-  dealOfTheDay: DealProduct;
+  dealOfTheDay: DealProduct | null;
   deals: DealProduct[];
   lightningDeals: LightningDeal[];
 }
@@ -203,17 +89,19 @@ async function getDealsData(): Promise<DealsData> {
       )
       .limit(1);
 
-    const resolvedDealOfTheDay: DealProduct = topDeal
-      ? {
-          name: topDeal.name,
-          slug: topDeal.slug,
-          price: topDeal.price,
-          compareAtPrice: topDeal.compareAtPrice as number,
-          image: topDeal.image?.[0] ?? null,
-          avgRating: topDeal.avgRating,
-          reviewCount: topDeal.reviewCount,
-        }
-      : placeholderDealOfTheDay;
+    if (!topDeal) {
+      return { dealOfTheDay: null, deals: [], lightningDeals: [] };
+    }
+
+    const resolvedDealOfTheDay: DealProduct = {
+      name: topDeal.name,
+      slug: topDeal.slug,
+      price: topDeal.price,
+      compareAtPrice: topDeal.compareAtPrice as number,
+      image: topDeal.image?.[0] ?? null,
+      avgRating: topDeal.avgRating,
+      reviewCount: topDeal.reviewCount,
+    };
 
     // ── Lightning Deals: 4 popular on-sale products (excluding deal of the day) ──
     const excludeSlugs = topDeal ? [topDeal.slug] : [];
@@ -238,28 +126,25 @@ async function getDealsData(): Promise<DealsData> {
       .orderBy(desc(products.reviewCount))
       .limit(4);
 
-    const resolvedLightningDeals: LightningDeal[] =
-      lightningRows.length > 0
-        ? lightningRows.map((row) => ({
-            name: row.name,
-            slug: row.slug,
-            price: row.price,
-            compareAtPrice: row.compareAtPrice as number,
-            image: row.image?.[0] ?? null,
-            avgRating: row.avgRating,
-            reviewCount: row.reviewCount,
-            claimedPercent: Math.max(
-              10,
-              Math.min(
-                95,
-                100 -
-                  Math.round(
-                    (row.stock / (row.stock + row.reviewCount)) * 100
-                  )
-              )
-            ),
-          }))
-        : placeholderLightningDeals;
+    const resolvedLightningDeals: LightningDeal[] = lightningRows.map((row) => ({
+      name: row.name,
+      slug: row.slug,
+      price: row.price,
+      compareAtPrice: row.compareAtPrice as number,
+      image: row.image?.[0] ?? null,
+      avgRating: row.avgRating,
+      reviewCount: row.reviewCount,
+      claimedPercent: Math.max(
+        10,
+        Math.min(
+          95,
+          100 -
+            Math.round(
+              (row.stock / (row.stock + row.reviewCount)) * 100
+            )
+        )
+      ),
+    }));
 
     // ── Products on Sale (general grid) ──
     const { listProducts } = await import("@amazone/products");
@@ -289,14 +174,14 @@ async function getDealsData(): Promise<DealsData> {
 
     return {
       dealOfTheDay: resolvedDealOfTheDay,
-      deals: onSaleProducts.length > 0 ? onSaleProducts : placeholderDeals,
+      deals: onSaleProducts,
       lightningDeals: resolvedLightningDeals,
     };
   } catch {
     return {
-      dealOfTheDay: placeholderDealOfTheDay,
-      deals: placeholderDeals,
-      lightningDeals: placeholderLightningDeals,
+      dealOfTheDay: null,
+      deals: [],
+      lightningDeals: [],
     };
   }
 }
@@ -348,85 +233,85 @@ export default async function DealsPage(): Promise<React.ReactElement> {
       </section>
 
       {/* ---- Deal of the Day ---- */}
-      <section className="mb-12" aria-labelledby="deal-of-the-day-heading">
-        <h2
-          id="deal-of-the-day-heading"
-          className="mb-6 flex items-center gap-2 text-2xl font-bold"
-        >
-          <Tag className="h-6 w-6 text-red-600" aria-hidden="true" />
-          Deal of the Day
-        </h2>
+      {dealOfTheDay && (
+        <section className="mb-12" aria-labelledby="deal-of-the-day-heading">
+          <h2
+            id="deal-of-the-day-heading"
+            className="mb-6 flex items-center gap-2 text-2xl font-bold"
+          >
+            <Tag className="h-6 w-6 text-red-600" aria-hidden="true" />
+            Deal of the Day
+          </h2>
 
-        <Card className="overflow-hidden">
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Product image placeholder */}
-            <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 p-8">
-              {dealOfTheDay.image ? (
-                <Image
-                  src={dealOfTheDay.image}
-                  alt={dealOfTheDay.name}
-                  width={600}
-                  height={600}
-                  className="max-h-72 w-auto object-contain"
-                />
-              ) : (
-                <div className="flex h-64 w-full items-center justify-center text-gray-400">
-                  <svg
-                    className="h-24 w-24"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z"
-                    />
-                  </svg>
+          <Card className="overflow-hidden">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 p-8">
+                {dealOfTheDay.image ? (
+                  <Image
+                    src={dealOfTheDay.image}
+                    alt={dealOfTheDay.name}
+                    width={600}
+                    height={600}
+                    className="max-h-72 w-auto object-contain"
+                  />
+                ) : (
+                  <div className="flex h-64 w-full items-center justify-center text-gray-400">
+                    <svg
+                      className="h-24 w-24"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z"
+                      />
+                    </svg>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col justify-center gap-4 p-6">
+                <Badge variant="destructive" className="w-fit">
+                  {discountPercent(dealOfTheDay.price, dealOfTheDay.compareAtPrice)}
+                  % OFF
+                </Badge>
+
+                <h3 className="text-2xl font-bold">{dealOfTheDay.name}</h3>
+
+                <div className="flex items-baseline gap-3">
+                  <span className="text-3xl font-bold text-red-600">
+                    {formatPrice(dealOfTheDay.price)}
+                  </span>
+                  <span className="text-lg text-muted-foreground line-through">
+                    {formatPrice(dealOfTheDay.compareAtPrice)}
+                  </span>
                 </div>
-              )}
-            </div>
 
-            {/* Details */}
-            <div className="flex flex-col justify-center gap-4 p-6">
-              <Badge variant="destructive" className="w-fit">
-                {discountPercent(dealOfTheDay.price, dealOfTheDay.compareAtPrice)}
-                % OFF
-              </Badge>
+                <p className="text-sm text-muted-foreground">
+                  {dealOfTheDay.reviewCount.toLocaleString()} reviews
+                </p>
 
-              <h3 className="text-2xl font-bold">{dealOfTheDay.name}</h3>
+                <CountdownTimer endTime={dealEnd} />
 
-              <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-bold text-red-600">
-                  {formatPrice(dealOfTheDay.price)}
-                </span>
-                <span className="text-lg text-muted-foreground line-through">
-                  {formatPrice(dealOfTheDay.compareAtPrice)}
-                </span>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                {dealOfTheDay.reviewCount.toLocaleString()} reviews
-              </p>
-
-              <CountdownTimer endTime={dealEnd} />
-
-              <div className="mt-2 flex gap-3">
-                <Button size="lg" className="bg-orange-500 hover:bg-orange-600" asChild>
-                  <Link href={`/products/${dealOfTheDay.slug}`}>Buy Now</Link>
-                </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <Link href={`/products/${dealOfTheDay.slug}`}>Add to Cart</Link>
-                </Button>
+                <div className="mt-2 flex gap-3">
+                  <Button size="lg" className="bg-orange-500 hover:bg-orange-600" asChild>
+                    <Link href={`/products/${dealOfTheDay.slug}`}>Buy Now</Link>
+                  </Button>
+                  <Button size="lg" variant="outline" asChild>
+                    <Link href={`/products/${dealOfTheDay.slug}`}>Add to Cart</Link>
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
-      </section>
+          </Card>
+        </section>
+      )}
 
-      <Separator className="mb-12" />
+      {dealOfTheDay && <Separator className="mb-12" />}
 
       {/* ---- Products on Sale ---- */}
       <section className="mb-12" aria-labelledby="sale-products-heading">
@@ -444,21 +329,27 @@ export default async function DealsPage(): Promise<React.ReactElement> {
           </Button>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3">
-          {deals.map((product) => (
-            <ProductCard
-              key={product.slug}
-              name={product.name}
-              slug={product.slug}
-              priceInCents={product.price}
-              compareAtPriceInCents={product.compareAtPrice}
-              image={product.image}
-              rating={product.avgRating}
-              reviewCount={product.reviewCount}
-              badge="Sale"
-            />
-          ))}
-        </div>
+        {deals.length === 0 ? (
+          <p className="py-8 text-center text-muted-foreground">
+            No products on sale right now. Check back soon!
+          </p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3">
+            {deals.map((product) => (
+              <ProductCard
+                key={product.slug}
+                name={product.name}
+                slug={product.slug}
+                priceInCents={product.price}
+                compareAtPriceInCents={product.compareAtPrice}
+                image={product.image}
+                rating={product.avgRating}
+                reviewCount={product.reviewCount}
+                badge="Sale"
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       <Separator className="mb-12" />

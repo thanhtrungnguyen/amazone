@@ -9,8 +9,6 @@ export const metadata: Metadata = {
   description: "Manage your profile, shipping address, and notification preferences.",
 };
 
-// ── Placeholder data ────────────────────────────────────────────────
-
 interface UserSettings {
   user: { name: string; email: string };
   address: {
@@ -27,26 +25,19 @@ interface UserSettings {
   };
 }
 
-const placeholderSettings: UserSettings = {
-  user: {
-    name: "Jane Doe",
-    email: "jane.doe@example.com",
-  },
-  address: {
-    street: "742 Evergreen Terrace",
-    city: "Springfield",
-    state: "IL",
-    zip: "62704",
-    country: "United States",
-  },
-  notifications: {
-    orderUpdates: true,
-    promotions: false,
-    reviews: true,
-  },
+const defaultAddress = {
+  street: "",
+  city: "",
+  state: "",
+  zip: "",
+  country: "",
 };
 
-// ── Data fetching with fallback ─────────────────────────────────────
+const defaultNotifications = {
+  orderUpdates: true,
+  promotions: false,
+  reviews: true,
+};
 
 async function getSettings(): Promise<UserSettings> {
   try {
@@ -54,24 +45,38 @@ async function getSettings(): Promise<UserSettings> {
     const session = await auth();
 
     if (!session?.user?.id) {
-      return placeholderSettings;
+      return {
+        user: { name: "", email: "" },
+        address: defaultAddress,
+        notifications: defaultNotifications,
+      };
     }
 
-    // Query the real user record for additional stored data
     const { getUserById } = await import("@amazone/users");
     const user = await getUserById(session.user.id);
 
+    const prefs = (user as Record<string, unknown>)?.notificationPreferences as
+      | { orderUpdates?: boolean; promotions?: boolean }
+      | undefined;
+
     return {
-      ...placeholderSettings,
       user: {
-        name: user?.name ?? session.user.name ?? "User",
+        name: user?.name ?? session.user.name ?? "",
         email: user?.email ?? session.user.email ?? "",
       },
-      // Address fields are not yet stored in the users table,
-      // so we keep the placeholder defaults until the schema is extended.
+      address: defaultAddress,
+      notifications: {
+        orderUpdates: prefs?.orderUpdates ?? true,
+        promotions: prefs?.promotions ?? false,
+        reviews: true,
+      },
     };
   } catch {
-    return placeholderSettings;
+    return {
+      user: { name: "", email: "" },
+      address: defaultAddress,
+      notifications: defaultNotifications,
+    };
   }
 }
 

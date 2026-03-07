@@ -22,51 +22,6 @@ interface Category {
   productCount: number;
 }
 
-const placeholderCategories: Category[] = [
-  {
-    id: "1",
-    name: "Electronics",
-    slug: "electronics",
-    description: "Smartphones, laptops, audio, and more",
-    productCount: 156,
-  },
-  {
-    id: "2",
-    name: "Clothing",
-    slug: "clothing",
-    description: "Men's, women's, and kids' fashion",
-    productCount: 423,
-  },
-  {
-    id: "3",
-    name: "Home & Kitchen",
-    slug: "home-kitchen",
-    description: "Furniture, appliances, and decor",
-    productCount: 289,
-  },
-  {
-    id: "4",
-    name: "Books",
-    slug: "books",
-    description: "Fiction, non-fiction, textbooks, and audiobooks",
-    productCount: 1_024,
-  },
-  {
-    id: "5",
-    name: "Sports & Outdoors",
-    slug: "sports-outdoors",
-    description: "Fitness, camping, and outdoor gear",
-    productCount: 178,
-  },
-  {
-    id: "6",
-    name: "Toys & Games",
-    slug: "toys-games",
-    description: "Board games, puzzles, action figures, and more",
-    productCount: 312,
-  },
-];
-
 async function getCategories(): Promise<Category[]> {
   try {
     const { db, categories } = await import("@amazone/db");
@@ -88,7 +43,7 @@ async function getCategories(): Promise<Category[]> {
 
     return rows;
   } catch {
-    return placeholderCategories;
+    return [];
   }
 }
 

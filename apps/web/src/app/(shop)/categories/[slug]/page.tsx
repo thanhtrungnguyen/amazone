@@ -37,70 +37,6 @@ interface Product {
   reviewCount: number;
 }
 
-const placeholderCategories: Record<string, Category> = {
-  electronics: {
-    id: "1",
-    name: "Electronics",
-    slug: "electronics",
-    description: "Smartphones, laptops, audio, and more",
-  },
-  clothing: {
-    id: "2",
-    name: "Clothing",
-    slug: "clothing",
-    description: "Men's, women's, and kids' fashion",
-  },
-  "home-kitchen": {
-    id: "3",
-    name: "Home & Kitchen",
-    slug: "home-kitchen",
-    description: "Furniture, appliances, and decor",
-  },
-};
-
-const placeholderProducts: Product[] = [
-  {
-    id: "1",
-    name: "Premium Wireless Headphones",
-    slug: "premium-wireless-headphones",
-    price: 9999,
-    compareAtPrice: 12999,
-    images: null,
-    avgRating: 450,
-    reviewCount: 128,
-  },
-  {
-    id: "2",
-    name: "Mechanical Gaming Keyboard",
-    slug: "mechanical-gaming-keyboard",
-    price: 7999,
-    compareAtPrice: null,
-    images: null,
-    avgRating: 470,
-    reviewCount: 312,
-  },
-  {
-    id: "3",
-    name: "USB-C Fast Charger",
-    slug: "usb-c-fast-charger",
-    price: 2499,
-    compareAtPrice: 3499,
-    images: null,
-    avgRating: 440,
-    reviewCount: 89,
-  },
-  {
-    id: "4",
-    name: "Bluetooth Portable Speaker",
-    slug: "bluetooth-portable-speaker",
-    price: 3999,
-    compareAtPrice: null,
-    images: null,
-    avgRating: 430,
-    reviewCount: 245,
-  },
-];
-
 async function getCategory(slug: string): Promise<Category | null> {
   try {
     const { db, categories } = await import("@amazone/db");
@@ -110,7 +46,7 @@ async function getCategory(slug: string): Promise<Category | null> {
     });
     return row ?? null;
   } catch {
-    return placeholderCategories[slug] ?? null;
+    return null;
   }
 }
 
@@ -135,7 +71,7 @@ async function getCategoryProducts(
       reviewCount: p.reviewCount,
     }));
   } catch {
-    return placeholderProducts;
+    return [];
   }
 }
 

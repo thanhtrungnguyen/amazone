@@ -2,11 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import {
   ShoppingCart,
   Search,
@@ -20,7 +16,6 @@ import {
   UserCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,28 +29,11 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 import { ThemeToggle } from "@/components/theme-toggle";
-
-const searchSchema = z.object({
-  q: z.string().min(1, "Enter a search term"),
-});
-
-type SearchForm = z.infer<typeof searchSchema>;
+import { SearchAutocomplete } from "@/components/search-autocomplete";
 
 export function SiteHeader(): React.ReactElement {
-  const router = useRouter();
   const { data: session, status } = useSession();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const { register, handleSubmit } = useForm<SearchForm>({
-    resolver: zodResolver(searchSchema),
-    defaultValues: { q: "" },
-  });
-  const {
-    register: registerMobile,
-    handleSubmit: handleMobileSubmit,
-  } = useForm<SearchForm>({
-    resolver: zodResolver(searchSchema),
-    defaultValues: { q: "" },
-  });
   const totalItems = useCartStore((s) => s.totalItems());
   const openCart = useCartStore((s) => s.open);
   const wishlistCount = useWishlistStore((s) => s.items.length);
@@ -63,11 +41,6 @@ export function SiteHeader(): React.ReactElement {
   const isAuthenticated = status === "authenticated";
   const userName = session?.user?.name;
   const userRole = (session?.user as { role?: string })?.role;
-
-  function onSearch(data: SearchForm) {
-    router.push(`/search?q=${encodeURIComponent(data.q.trim())}`);
-    setMobileSearchOpen(false);
-  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white dark:bg-gray-950 dark:border-gray-800">
@@ -118,17 +91,9 @@ export function SiteHeader(): React.ReactElement {
         </Link>
 
         {/* Search */}
-        <form onSubmit={handleSubmit(onSearch)} className="hidden flex-1 md:flex">
-          <div className="relative w-full max-w-lg">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search products..."
-              className="pl-9"
-              type="search"
-              {...register("q")}
-            />
-          </div>
-        </form>
+        <div className="hidden flex-1 md:block">
+          <SearchAutocomplete className="w-full max-w-lg" />
+        </div>
 
         {/* Nav links (desktop) */}
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
@@ -284,18 +249,10 @@ export function SiteHeader(): React.ReactElement {
       {/* Mobile search bar */}
       {mobileSearchOpen && (
         <div className="border-b bg-white dark:bg-gray-950 dark:border-gray-800 px-4 py-2 md:hidden">
-          <form onSubmit={handleMobileSubmit(onSearch)}>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search products..."
-                className="pl-9"
-                type="search"
-                autoFocus
-                {...registerMobile("q")}
-              />
-            </div>
-          </form>
+          <SearchAutocomplete
+            autoFocus
+            onSubmit={() => setMobileSearchOpen(false)}
+          />
         </div>
       )}
     </header>

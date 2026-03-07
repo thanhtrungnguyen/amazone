@@ -1,0 +1,2 @@
+ALTER TABLE "users" ADD COLUMN "notification_preferences" jsonb;--> statement-breakpoint
+CREATE INDEX "products_search_idx" ON "products" USING gin (to_tsvector('english', "name" || ' ' || coalesce("description", '')));

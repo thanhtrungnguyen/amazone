@@ -24,10 +24,6 @@ export const metadata = {
   description: "View and manage all orders across the platform.",
 };
 
-// ---------------------------------------------------------------------------
-// Placeholder data
-// ---------------------------------------------------------------------------
-
 interface AdminOrder {
   id: string;
   customer: string;
@@ -36,89 +32,6 @@ interface AdminOrder {
   status: OrderStatus;
   date: string;
 }
-
-const placeholderOrders: AdminOrder[] = [
-  {
-    id: "ORD-9281",
-    customer: "Alice Johnson",
-    itemCount: 2,
-    totalCents: 12999,
-    status: "delivered",
-    date: "2026-03-03",
-  },
-  {
-    id: "ORD-9280",
-    customer: "Bob Smith",
-    itemCount: 5,
-    totalCents: 54900,
-    status: "shipped",
-    date: "2026-03-03",
-  },
-  {
-    id: "ORD-9279",
-    customer: "Charlie Nguyen",
-    itemCount: 1,
-    totalCents: 8499,
-    status: "processing",
-    date: "2026-03-02",
-  },
-  {
-    id: "ORD-9278",
-    customer: "Diana Lee",
-    itemCount: 3,
-    totalCents: 199900,
-    status: "confirmed",
-    date: "2026-03-02",
-  },
-  {
-    id: "ORD-9277",
-    customer: "Ethan Park",
-    itemCount: 1,
-    totalCents: 3299,
-    status: "pending",
-    date: "2026-03-01",
-  },
-  {
-    id: "ORD-9276",
-    customer: "Fiona Martinez",
-    itemCount: 4,
-    totalCents: 74500,
-    status: "delivered",
-    date: "2026-02-28",
-  },
-  {
-    id: "ORD-9275",
-    customer: "George Kim",
-    itemCount: 2,
-    totalCents: 15999,
-    status: "cancelled",
-    date: "2026-02-27",
-  },
-  {
-    id: "ORD-9274",
-    customer: "Hannah Brown",
-    itemCount: 3,
-    totalCents: 42900,
-    status: "refunded",
-    date: "2026-02-26",
-  },
-  {
-    id: "ORD-9273",
-    customer: "Ivan Petrov",
-    itemCount: 1,
-    totalCents: 29999,
-    status: "delivered",
-    date: "2026-02-25",
-  },
-  {
-    id: "ORD-9272",
-    customer: "Julia Chen",
-    itemCount: 2,
-    totalCents: 8999,
-    status: "shipped",
-    date: "2026-02-24",
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Data fetcher
@@ -153,7 +66,7 @@ async function getOrders(): Promise<AdminOrder[]> {
       date: row.date.toISOString().slice(0, 10),
     }));
   } catch {
-    return placeholderOrders;
+    return [];
   }
 }
 

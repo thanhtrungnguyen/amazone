@@ -28,81 +28,13 @@ interface ProductReviewsProps {
   productId: string;
 }
 
-const placeholderReviews: Review[] = [
-  {
-    id: "placeholder-1",
-    userId: "user-1",
-    productId: "",
-    rating: 5,
-    title: "Absolutely love it!",
-    comment:
-      "This product exceeded all my expectations. The quality is outstanding and it arrived earlier than expected. Would definitely purchase again.",
-    isVerifiedPurchase: true,
-    createdAt: new Date("2026-02-15"),
-    updatedAt: new Date("2026-02-15"),
-    user: { id: "user-1", name: "Sarah M.", image: null },
-  },
-  {
-    id: "placeholder-2",
-    userId: "user-2",
-    productId: "",
-    rating: 4,
-    title: "Great value for the price",
-    comment:
-      "Very solid product overall. Build quality is impressive and it works exactly as described. Only giving 4 stars because the packaging could be better.",
-    isVerifiedPurchase: true,
-    createdAt: new Date("2026-02-10"),
-    updatedAt: new Date("2026-02-10"),
-    user: { id: "user-2", name: "James R.", image: null },
-  },
-  {
-    id: "placeholder-3",
-    userId: "user-3",
-    productId: "",
-    rating: 5,
-    title: "Perfect for everyday use",
-    comment:
-      "I have been using this daily for two weeks now and it has held up beautifully. Highly recommend to anyone on the fence about purchasing.",
-    isVerifiedPurchase: false,
-    createdAt: new Date("2026-01-28"),
-    updatedAt: new Date("2026-01-28"),
-    user: { id: "user-3", name: "Emily T.", image: null },
-  },
-  {
-    id: "placeholder-4",
-    userId: "user-4",
-    productId: "",
-    rating: 3,
-    title: "Decent but has some quirks",
-    comment:
-      "The product itself is fine and does what it is supposed to. However, the instructions were confusing and setup took longer than expected.",
-    isVerifiedPurchase: true,
-    createdAt: new Date("2026-01-20"),
-    updatedAt: new Date("2026-01-20"),
-    user: { id: "user-4", name: "Michael K.", image: null },
-  },
-  {
-    id: "placeholder-5",
-    userId: "user-5",
-    productId: "",
-    rating: 5,
-    title: "Best purchase this year",
-    comment:
-      "Cannot say enough good things about this product. The attention to detail is remarkable and customer support was incredibly helpful when I had a question.",
-    isVerifiedPurchase: true,
-    createdAt: new Date("2026-01-15"),
-    updatedAt: new Date("2026-01-15"),
-    user: { id: "user-5", name: "Priya S.", image: null },
-  },
-];
-
 async function fetchReviews(productId: string): Promise<Review[]> {
   try {
     const { getProductReviews } = await import("@amazone/reviews");
     const reviews = await getProductReviews(productId);
     return reviews as Review[];
   } catch {
-    return placeholderReviews.map((r) => ({ ...r, productId }));
+    return [];
   }
 }
 
