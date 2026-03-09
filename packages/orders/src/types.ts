@@ -5,6 +5,7 @@ export const createOrderSchema = z.object({
   shippingName: z.string().min(1).max(255),
   shippingAddress: z.string().min(1),
   shippingCity: z.string().min(1).max(255),
+  shippingState: z.string().max(255).optional(),
   shippingCountry: z.string().length(2),
   shippingZip: z.string().min(1).max(20),
 });
@@ -23,6 +24,7 @@ export interface OrderWithItems {
   shippingName: string;
   shippingAddress: string;
   shippingCity: string;
+  shippingState: string | null;
   shippingCountry: string;
   shippingZip: string;
   createdAt: Date;

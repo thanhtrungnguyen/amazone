@@ -4,6 +4,7 @@ export const checkoutSessionSchema = z.object({
   shippingName: z.string().min(1).max(255),
   shippingAddress: z.string().min(1),
   shippingCity: z.string().min(1).max(255),
+  shippingState: z.string().max(255).optional(),
   shippingCountry: z.string().length(2),
   shippingZip: z.string().min(1).max(20),
   successUrl: z.string().url(),

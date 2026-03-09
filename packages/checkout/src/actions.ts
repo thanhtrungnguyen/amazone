@@ -63,6 +63,7 @@ export async function createCheckoutSession(
       shippingName: validated.shippingName,
       shippingAddress: validated.shippingAddress,
       shippingCity: validated.shippingCity,
+      shippingState: validated.shippingState,
       shippingCountry: validated.shippingCountry,
       shippingZip: validated.shippingZip,
     },

@@ -441,7 +441,8 @@ export default async function OrderDetailPage({
             <p>{order.shippingAddress}</p>
             <p>
               {order.shippingCity}
-              {order.shippingZip ? `, ${order.shippingZip}` : ""}
+              {order.shippingState ? `, ${order.shippingState}` : ""}
+              {order.shippingZip ? ` ${order.shippingZip}` : ""}
             </p>
             <p>{order.shippingCountry}</p>
           </address>

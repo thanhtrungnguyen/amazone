@@ -37,6 +37,7 @@ import {
 import { Loader2, ArrowLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { ImageUpload } from "@/components/image-upload";
 import { updateSellerProduct, deleteSellerProduct } from "./actions";
 
 const editProductSchema = z.object({
@@ -92,6 +93,9 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | undefined>(
+    product.images?.[0] ?? undefined,
+  );
 
   const {
     register,
@@ -350,6 +354,21 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
                   category.
                 </p>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Product Image */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Product Image</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ImageUpload
+                value={imageUrl}
+                onUpload={(url) => setImageUrl(url)}
+                onRemove={() => setImageUrl(undefined)}
+                disabled={isPending}
+              />
             </CardContent>
           </Card>
 

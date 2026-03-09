@@ -49,6 +49,7 @@ export interface OrderDetail {
   shippingName: string;
   shippingAddress: string;
   shippingCity: string;
+  shippingState: string | null;
   shippingCountry: string;
   shippingZip: string;
   createdAt: Date;
@@ -214,6 +215,7 @@ export async function getOrderDetail(
     shippingName: order.shippingName,
     shippingAddress: order.shippingAddress,
     shippingCity: order.shippingCity,
+    shippingState: order.shippingState ?? null,
     shippingCountry: order.shippingCountry,
     shippingZip: order.shippingZip,
     createdAt: order.createdAt,

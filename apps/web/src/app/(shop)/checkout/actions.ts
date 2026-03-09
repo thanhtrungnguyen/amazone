@@ -8,6 +8,7 @@ interface CheckoutFormInput {
   shippingName: string;
   shippingAddress: string;
   shippingCity: string;
+  shippingState?: string;
   shippingCountry: string;
   shippingZip: string;
 }

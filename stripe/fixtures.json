@@ -1,0 +1,77 @@
+{
+  "_meta": {
+    "template_version": 0,
+    "description": "Amazone test fixtures — creates sample products and prices in Stripe test mode. Run with: docker compose --profile seed up stripe-fixtures"
+  },
+  "fixtures": [
+    {
+      "name": "product_tshirt",
+      "path": "/v1/products",
+      "method": "post",
+      "params": {
+        "name": "Premium Cotton T-Shirt",
+        "description": "Comfortable 100% cotton t-shirt, available in multiple colors.",
+        "metadata": {
+          "category": "clothing",
+          "sku": "AMZN-TSH-001"
+        }
+      }
+    },
+    {
+      "name": "price_tshirt",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_tshirt:id}",
+        "unit_amount": 2999,
+        "currency": "usd"
+      }
+    },
+    {
+      "name": "product_headphones",
+      "path": "/v1/products",
+      "method": "post",
+      "params": {
+        "name": "Wireless Noise-Cancelling Headphones",
+        "description": "Over-ear headphones with 30-hour battery life and active noise cancellation.",
+        "metadata": {
+          "category": "electronics",
+          "sku": "AMZN-HDH-001"
+        }
+      }
+    },
+    {
+      "name": "price_headphones",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_headphones:id}",
+        "unit_amount": 14999,
+        "currency": "usd"
+      }
+    },
+    {
+      "name": "product_book",
+      "path": "/v1/products",
+      "method": "post",
+      "params": {
+        "name": "The Pragmatic Programmer (20th Anniversary Edition)",
+        "description": "Classic software engineering book, updated for modern development.",
+        "metadata": {
+          "category": "books",
+          "sku": "AMZN-BK-001"
+        }
+      }
+    },
+    {
+      "name": "price_book",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_book:id}",
+        "unit_amount": 4499,
+        "currency": "usd"
+      }
+    }
+  ]
+}

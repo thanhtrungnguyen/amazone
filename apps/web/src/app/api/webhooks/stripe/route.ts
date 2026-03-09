@@ -6,6 +6,7 @@ import { logger } from "@amazone/shared-utils";
 import {
   sendOrderConfirmation,
   sendShippingUpdate,
+  sendSellerOrderNotification,
 } from "@/lib/email";
 import { webhookLimiter, withRateLimit } from "@/lib/rate-limit";
 
@@ -93,6 +94,9 @@ async function sendWebhookEmail(result: WebhookResult): Promise<void> {
           priceInCents: item.priceInCents,
         })),
       });
+
+      // Notify each seller who has items in this order
+      await sendSellerOrderNotification(result.orderId);
     }
   } else if (result.action === "refunded") {
     await sendShippingUpdate({

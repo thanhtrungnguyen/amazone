@@ -15,6 +15,13 @@
       "when": 1772872224435,
       "tag": "0001_brainy_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772875737078,
+      "tag": "0002_aberrant_ben_grimm",
+      "breakpoints": true
     }
   ]
 }

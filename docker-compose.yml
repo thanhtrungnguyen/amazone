@@ -111,6 +111,61 @@ services:
       - prometheus
       - loki
 
+  # ---------------------------------------------------------------------------
+  # Stripe CLI — forwards webhook events to the local Next.js app.
+  # Requires STRIPE_SECRET_KEY in your .env file (sk_test_... or rk_test_...).
+  # After starting, the CLI prints a webhook signing secret (whsec_...) to
+  # stdout — copy it into STRIPE_WEBHOOK_SECRET in your .env so the app can
+  # verify signatures.
+  #
+  # The forward-to URL uses "host.docker.internal" because the Next.js dev
+  # server runs on the host, not inside Docker.
+  # ---------------------------------------------------------------------------
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    container_name: amazone-stripe-cli
+    restart: unless-stopped
+    command:
+      - listen
+      - "--forward-to"
+      - "host.docker.internal:3000/api/webhooks/stripe"
+      - "--skip-verify"
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY must be set in .env}
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "stripe status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ---------------------------------------------------------------------------
+  # Stripe test fixtures (one-shot).
+  # Creates products and prices in Stripe's test mode so you have consistent
+  # test data after a fresh "stripe fixtures" run.  Place your fixture file at
+  # ./stripe/fixtures.json (see Stripe docs for the schema).
+  # This service exits after running — it is NOT long-lived.
+  # ---------------------------------------------------------------------------
+  stripe-fixtures:
+    image: stripe/stripe-cli:latest
+    container_name: amazone-stripe-fixtures
+    restart: "no"
+    entrypoint: ["stripe", "fixtures", "/fixtures/fixtures.json"]
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY must be set in .env}
+    env_file:
+      - .env
+    volumes:
+      - ./stripe/fixtures.json:/fixtures/fixtures.json:ro
+    profiles:
+      - seed
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   postgres-data:
   redis-data:

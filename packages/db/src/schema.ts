@@ -159,6 +159,7 @@ export const orders = pgTable(
     shippingName: varchar("shipping_name", { length: 255 }).notNull(),
     shippingAddress: text("shipping_address").notNull(),
     shippingCity: varchar("shipping_city", { length: 255 }).notNull(),
+    shippingState: varchar("shipping_state", { length: 255 }),
     shippingCountry: varchar("shipping_country", { length: 2 }).notNull(),
     shippingZip: varchar("shipping_zip", { length: 20 }).notNull(),
     stripePaymentIntentId: varchar("stripe_payment_intent_id", {

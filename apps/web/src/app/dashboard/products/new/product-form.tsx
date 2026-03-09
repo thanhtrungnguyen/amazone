@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,6 +26,7 @@ import {
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { ImageUpload } from "@/components/image-upload";
 
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required").max(255),
@@ -65,6 +66,7 @@ interface ProductFormProps {
 export function ProductForm({ categories }: ProductFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
 
   const {
     register,
@@ -311,6 +313,21 @@ export function ProductForm({ categories }: ProductFormProps) {
                   category.
                 </p>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Product Image */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Product Image</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ImageUpload
+                value={imageUrl}
+                onUpload={(url) => setImageUrl(url)}
+                onRemove={() => setImageUrl(undefined)}
+                disabled={isPending}
+              />
             </CardContent>
           </Card>
 
