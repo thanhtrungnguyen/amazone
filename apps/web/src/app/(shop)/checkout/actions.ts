@@ -1,8 +1,8 @@
 "use server";
 
 import { auth } from "@/lib/auth";
-import { createCheckoutSession } from "@amazone/checkout";
-import type { CheckoutResult } from "@amazone/checkout";
+import { createCheckoutSession, applyCoupon } from "@amazone/checkout";
+import type { CheckoutResult, ApplyCouponResult } from "@amazone/checkout";
 
 interface CheckoutFormInput {
   shippingName: string;
@@ -11,6 +11,7 @@ interface CheckoutFormInput {
   shippingState?: string;
   shippingCountry: string;
   shippingZip: string;
+  couponCode?: string;
 }
 
 type CheckoutActionResult =
@@ -43,4 +44,15 @@ export async function submitCheckout(
         : "Something went wrong during checkout.";
     return { success: false, error: message };
   }
+}
+
+/**
+ * Server action that validates a coupon code from the checkout form.
+ * Called on the client when the user clicks "Apply" — does not increment usageCount.
+ */
+export async function validateCouponCode(
+  code: string,
+  orderTotalCents: number
+): Promise<ApplyCouponResult> {
+  return applyCoupon(code, orderTotalCents);
 }

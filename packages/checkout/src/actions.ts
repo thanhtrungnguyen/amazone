@@ -3,13 +3,22 @@
 import Stripe from "stripe";
 import { getCart } from "@amazone/cart";
 import { createOrder } from "@amazone/orders";
-import { db, products, orders, orderItems, stripeWebhookEvents } from "@amazone/db";
+import {
+  db,
+  products,
+  orders,
+  orderItems,
+  stripeWebhookEvents,
+  coupons,
+  orderCoupons,
+} from "@amazone/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import {
   checkoutSessionSchema,
   type CheckoutSessionInput,
   type CheckoutResult,
   type WebhookResult,
+  type ApplyCouponResult,
 } from "./types";
 
 function getStripe(): Stripe | null {
@@ -18,6 +27,70 @@ function getStripe(): Stripe | null {
     return null;
   }
   return new Stripe(key);
+}
+
+/**
+ * Validate a coupon code against the current order subtotal.
+ * Does NOT increment usageCount — that happens in the webhook on confirmed payment.
+ */
+export async function applyCoupon(
+  code: string,
+  orderTotalCents: number
+): Promise<ApplyCouponResult> {
+  const normalized = code.trim().toUpperCase();
+
+  const [coupon] = await db
+    .select()
+    .from(coupons)
+    .where(eq(coupons.code, normalized))
+    .limit(1);
+
+  if (!coupon) {
+    return { valid: false, error: "Coupon code not found." };
+  }
+
+  if (!coupon.isActive) {
+    return { valid: false, error: "This coupon is no longer active." };
+  }
+
+  if (coupon.expiresAt !== null && coupon.expiresAt < new Date()) {
+    return { valid: false, error: "This coupon has expired." };
+  }
+
+  if (
+    coupon.maxUsages !== null &&
+    coupon.usageCount >= coupon.maxUsages
+  ) {
+    return { valid: false, error: "This coupon has reached its usage limit." };
+  }
+
+  if (
+    coupon.minOrderCents !== null &&
+    orderTotalCents < coupon.minOrderCents
+  ) {
+    const minDollars = (coupon.minOrderCents / 100).toFixed(2);
+    return {
+      valid: false,
+      error: `This coupon requires a minimum order of $${minDollars}.`,
+    };
+  }
+
+  // Calculate the discount amount in cents
+  let discountCents: number;
+  if (coupon.discountType === "percentage") {
+    discountCents = Math.floor((orderTotalCents * coupon.discountValue) / 100);
+  } else {
+    // fixed — cap at the order total so we never produce a negative charge
+    discountCents = Math.min(coupon.discountValue, orderTotalCents);
+  }
+
+  return {
+    valid: true,
+    discountCents,
+    code: coupon.code,
+    discountType: coupon.discountType,
+    discountValue: coupon.discountValue,
+  };
 }
 
 export async function createCheckoutSession(
@@ -56,6 +129,35 @@ export async function createCheckoutSession(
     }
   }
 
+  // Calculate subtotal in cents (server-verified prices, not client prices)
+  const subtotalCents = cart.items.reduce((sum, item) => {
+    const p = stockMap.get(item.product.id);
+    return sum + (p?.price ?? 0) * item.quantity;
+  }, 0);
+
+  // Resolve coupon server-side if a code was provided
+  let resolvedCouponId: string | null = null;
+  let discountCents = 0;
+
+  if (validated.couponCode) {
+    const couponResult = await applyCoupon(validated.couponCode, subtotalCents);
+    if (!couponResult.valid) {
+      throw new Error(`Coupon error: ${couponResult.error}`);
+    }
+    discountCents = couponResult.discountCents;
+
+    // Fetch the coupon ID for the order_coupons record
+    const [couponRow] = await db
+      .select({ id: coupons.id })
+      .from(coupons)
+      .where(eq(coupons.code, couponResult.code))
+      .limit(1);
+
+    if (couponRow) {
+      resolvedCouponId = couponRow.id;
+    }
+  }
+
   // Create order with verified prices (atomic DB transaction in @amazone/orders)
   const order = await createOrder(
     userId,
@@ -74,11 +176,21 @@ export async function createCheckoutSession(
     }))
   );
 
-  // Create Stripe checkout session
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    customer_email: undefined, // Will be set from auth session if available
-    line_items: cart.items.map((item) => ({
+  // Record the coupon application alongside the order (same transaction would be ideal,
+  // but createOrder is owned by @amazone/orders which doesn't know about coupons).
+  // We insert order_coupons immediately after — the Stripe session hasn't been paid yet,
+  // so if the user abandons, we simply never increment usageCount in the webhook.
+  if (resolvedCouponId !== null && discountCents > 0) {
+    await db.insert(orderCoupons).values({
+      orderId: order.id,
+      couponId: resolvedCouponId,
+      discountCents,
+    });
+  }
+
+  // Build line items for Stripe
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
+    cart.items.map((item) => ({
       price_data: {
         currency: "usd",
         product_data: {
@@ -88,10 +200,33 @@ export async function createCheckoutSession(
         unit_amount: stockMap.get(item.product.id)!.price,
       },
       quantity: item.quantity,
-    })),
+    }));
+
+  // Apply discount as a negative line item so the Stripe receipt reflects it.
+  // We avoid the Stripe coupon/promotion-code API to keep control server-side
+  // and avoid coupling our coupon lifecycle to Stripe's coupon objects.
+  if (discountCents > 0) {
+    lineItems.push({
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: `Discount (${validated.couponCode ?? ""})`,
+        },
+        unit_amount: -discountCents,
+      },
+      quantity: 1,
+    });
+  }
+
+  // Create Stripe checkout session
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    customer_email: undefined, // Will be set from auth session if available
+    line_items: lineItems,
     metadata: {
       orderId: order.id,
       userId,
+      ...(validated.couponCode ? { couponCode: validated.couponCode } : {}),
     },
     success_url: `${validated.successUrl}?session_id={CHECKOUT_SESSION_ID}&order_id=${order.id}`,
     cancel_url: `${validated.cancelUrl}?order_id=${order.id}`,
@@ -193,6 +328,31 @@ async function restoreStock(
   }
 }
 
+/**
+ * Increment the usageCount on a coupon after an order is confirmed.
+ * Safe to call inside a transaction. Uses SQL increment to be race-condition safe.
+ */
+async function incrementCouponUsage(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  orderId: string
+): Promise<void> {
+  const [orderCoupon] = await tx
+    .select({ couponId: orderCoupons.couponId })
+    .from(orderCoupons)
+    .where(eq(orderCoupons.orderId, orderId))
+    .limit(1);
+
+  if (!orderCoupon) return;
+
+  await tx
+    .update(coupons)
+    .set({
+      usageCount: sql`${coupons.usageCount} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(eq(coupons.id, orderCoupon.couponId));
+}
+
 export async function handleWebhookEvent(
   payload: string,
   signature: string
@@ -249,6 +409,7 @@ export async function handleWebhookEvent(
               .where(eq(orders.id, orderId));
 
             await decrementStock(tx, orderId);
+            await incrementCouponUsage(tx, orderId);
           });
 
           result = {
@@ -286,6 +447,7 @@ export async function handleWebhookEvent(
               .where(eq(orders.id, orderId));
 
             await decrementStock(tx, orderId);
+            await incrementCouponUsage(tx, orderId);
           });
 
           result = {

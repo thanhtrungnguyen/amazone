@@ -14,8 +14,21 @@ export const updateOrderStatusSchema = z.object({
   status: z.enum(ORDER_STATUSES),
 });
 
+export const cancelOrderSchema = z.object({
+  orderId: z.string().uuid(),
+  userId: z.string().uuid(),
+});
+
+export const requestReturnSchema = z.object({
+  orderId: z.string().uuid(),
+  userId: z.string().uuid(),
+  reason: z.string().min(10, "errors.return_reason_too_short").max(1000, "errors.return_reason_too_long"),
+});
+
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
+export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;
+export type RequestReturnInput = z.infer<typeof requestReturnSchema>;
 
 export interface OrderWithItems {
   id: string;
@@ -40,3 +53,7 @@ export interface OrderWithItems {
     };
   }[];
 }
+
+export type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; error: string };

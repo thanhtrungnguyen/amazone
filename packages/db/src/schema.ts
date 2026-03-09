@@ -11,9 +11,15 @@ import {
   uniqueIndex,
   index,
   jsonb,
+  check,
 } from "drizzle-orm/pg-core";
 
 // ─── Enums ──────────────────────────────────────────────
+
+export const discountTypeEnum = pgEnum("discount_type", [
+  "percentage",
+  "fixed",
+]);
 
 export const userRoleEnum = pgEnum("user_role", [
   "customer",
@@ -29,6 +35,14 @@ export const orderStatusEnum = pgEnum("order_status", [
   "delivered",
   "cancelled",
   "refunded",
+  "return_requested",
+]);
+
+export const returnStatusEnum = pgEnum("return_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "completed",
 ]);
 
 // ─── Users ──────────────────────────────────────────────
@@ -198,6 +212,32 @@ export const stripeWebhookEvents = pgTable("stripe_webhook_events", {
   processedAt: timestamp("processed_at", { mode: "date" }).defaultNow().notNull(),
 });
 
+// ─── Return Requests ────────────────────────────────────
+
+export const returnRequests = pgTable(
+  "return_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .references(() => orders.id, { onDelete: "cascade" })
+      .notNull()
+      .unique(), // one return request per order
+    userId: uuid("user_id")
+      .references(() => users.id)
+      .notNull(),
+    reason: text("reason").notNull(),
+    status: returnStatusEnum("status").default("pending").notNull(),
+    adminNotes: text("admin_notes"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("return_requests_order_idx").on(table.orderId),
+    index("return_requests_user_idx").on(table.userId),
+    index("return_requests_status_idx").on(table.status),
+  ]
+);
+
 // ─── Reviews ────────────────────────────────────────────
 
 export const reviews = pgTable(
@@ -226,6 +266,56 @@ export const reviews = pgTable(
   ]
 );
 
+// ─── Coupons ────────────────────────────────────────────
+
+export const coupons = pgTable(
+  "coupons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: varchar("code", { length: 50 }).notNull().unique(),
+    discountType: discountTypeEnum("discount_type").notNull(),
+    // For 'percentage': integer 1–100. For 'fixed': amount in cents.
+    discountValue: integer("discount_value").notNull(),
+    // Minimum order subtotal in cents required to use this coupon (null = no minimum)
+    minOrderCents: integer("min_order_cents"),
+    // Maximum total redemptions across all customers (null = unlimited)
+    maxUsages: integer("max_usages"),
+    usageCount: integer("usage_count").default(0).notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("coupons_code_idx").on(table.code),
+    index("coupons_active_idx").on(table.isActive),
+    check(
+      "coupons_discount_value_positive",
+      sql`${table.discountValue} > 0`
+    ),
+    check(
+      "coupons_percentage_range",
+      sql`${table.discountType} != 'percentage' OR ${table.discountValue} <= 100`
+    ),
+  ]
+);
+
+// Records which coupon was applied to each order.
+// Used by the webhook to increment usageCount exactly once per confirmed order.
+export const orderCoupons = pgTable("order_coupons", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id")
+    .references(() => orders.id, { onDelete: "cascade" })
+    .notNull()
+    .unique(), // one coupon application per order
+  couponId: uuid("coupon_id")
+    .references(() => coupons.id)
+    .notNull(),
+  // Discount amount actually applied at the time of order creation (snapshot)
+  discountCents: integer("discount_cents").notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
 // ─── Relations ──────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -234,6 +324,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   wishlists: many(wishlists),
   orders: many(orders),
   reviews: many(reviews),
+  returnRequests: many(returnRequests),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
@@ -287,6 +378,25 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     references: [users.id],
   }),
   items: many(orderItems),
+  returnRequest: one(returnRequests, {
+    fields: [orders.id],
+    references: [returnRequests.orderId],
+  }),
+  coupon: one(orderCoupons, {
+    fields: [orders.id],
+    references: [orderCoupons.orderId],
+  }),
+}));
+
+export const returnRequestsRelations = relations(returnRequests, ({ one }) => ({
+  order: one(orders, {
+    fields: [returnRequests.orderId],
+    references: [orders.id],
+  }),
+  user: one(users, {
+    fields: [returnRequests.userId],
+    references: [users.id],
+  }),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
@@ -308,5 +418,20 @@ export const reviewsRelations = relations(reviews, ({ one }) => ({
   product: one(products, {
     fields: [reviews.productId],
     references: [products.id],
+  }),
+}));
+
+export const couponsRelations = relations(coupons, ({ many }) => ({
+  orderCoupons: many(orderCoupons),
+}));
+
+export const orderCouponsRelations = relations(orderCoupons, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderCoupons.orderId],
+    references: [orders.id],
+  }),
+  coupon: one(coupons, {
+    fields: [orderCoupons.couponId],
+    references: [coupons.id],
   }),
 }));

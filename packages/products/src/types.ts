@@ -18,11 +18,13 @@ export const productFilterSchema = z.object({
   categoryId: z.string().uuid().optional(),
   minPrice: z.number().int().min(0).optional(),
   maxPrice: z.number().int().positive().optional(),
+  minRating: z.number().min(0).max(5).optional(),
+  inStock: z.boolean().optional(),
   search: z.string().optional(),
   isActive: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
   sortBy: z
-    .enum(["price_asc", "price_desc", "newest", "rating", "name"])
+    .enum(["price_asc", "price_desc", "newest", "rating", "name", "featured"])
     .default("newest"),
   cursor: z.string().uuid().optional(),
   limit: z.number().int().min(1).max(100).default(20),

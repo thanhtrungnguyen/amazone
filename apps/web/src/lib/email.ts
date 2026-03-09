@@ -1,39 +1,18 @@
-import { createTransport, type Transporter } from "nodemailer";
 import { db, orders, orderItems, products, users } from "@amazone/db";
 import { eq } from "drizzle-orm";
 import { logger } from "@amazone/shared-utils";
+import { getTransport, FROM } from "./email-transport";
 
 /**
- * Email transport — connects to Mailhog in development, configurable SMTP in production.
+ * Email utility — connects to Mailhog in development, configurable SMTP in production.
  *
- * Environment variables:
+ * Transport is configured via environment variables (see email-transport.ts):
  * - SMTP_HOST (default: localhost)
  * - SMTP_PORT (default: 1025 for Mailhog)
  * - SMTP_USER (optional)
  * - SMTP_PASS (optional)
  * - EMAIL_FROM (default: noreply@amazone.com)
  */
-
-let _transport: Transporter | undefined;
-
-function getTransport(): Transporter {
-  if (!_transport) {
-    _transport = createTransport({
-      host: process.env.SMTP_HOST ?? "localhost",
-      port: parseInt(process.env.SMTP_PORT ?? "1025", 10),
-      secure: false,
-      ...(process.env.SMTP_USER && {
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      }),
-    });
-  }
-  return _transport;
-}
-
-const FROM = process.env.EMAIL_FROM ?? "Amazone <noreply@amazone.com>";
 
 // ─── Email Templates ─────────────────────────────────────────────
 
@@ -135,6 +114,77 @@ export async function sendWelcomeEmail(params: {
            style="display:inline-block;padding:12px 24px;background:#111;color:#fff;text-decoration:none;border-radius:6px;margin:16px 0">
           Browse Products
         </a>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
+        <p style="color:#999;font-size:12px">Amazone — Your one-stop shop</p>
+      </div>
+    `,
+  });
+}
+
+// ─── Order Cancellation ───────────────────────────────────────────
+
+export async function sendOrderCancellationEmail(params: {
+  to: string;
+  customerName: string;
+  orderId: string;
+  totalInCents: number;
+}): Promise<void> {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const shortOrderId = params.orderId.slice(0, 8).toUpperCase();
+  const total = (params.totalInCents / 100).toFixed(2);
+
+  await getTransport().sendMail({
+    from: FROM,
+    to: params.to,
+    subject: `Order Cancelled — #${shortOrderId}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+        <h1 style="color:#111">Your order has been cancelled</h1>
+        <p>Hi ${params.customerName},</p>
+        <p>Your order <strong>#${shortOrderId}</strong> (total: <strong>$${total}</strong>) has been successfully cancelled.</p>
+        <p>If a payment was taken it will be refunded within 5–10 business days depending on your bank.</p>
+        <p style="color:#666;font-size:14px">
+          Questions? Visit your
+          <a href="${siteUrl}/profile/orders">order history</a>
+          or contact our support team.
+        </p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
+        <p style="color:#999;font-size:12px">Amazone — Your one-stop shop</p>
+      </div>
+    `,
+  });
+}
+
+// ─── Return Request ───────────────────────────────────────────────
+
+export async function sendReturnRequestEmail(params: {
+  to: string;
+  customerName: string;
+  orderId: string;
+  reason: string;
+  returnRequestId: string;
+}): Promise<void> {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const shortOrderId = params.orderId.slice(0, 8).toUpperCase();
+
+  await getTransport().sendMail({
+    from: FROM,
+    to: params.to,
+    subject: `Return Request Received — Order #${shortOrderId}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+        <h1 style="color:#111">Return Request Received</h1>
+        <p>Hi ${params.customerName},</p>
+        <p>We have received your return request for order <strong>#${shortOrderId}</strong>.</p>
+        <div style="background:#f9fafb;border-radius:6px;padding:16px;margin:20px 0">
+          <p style="margin:0 0 8px"><strong>Return Request ID:</strong> ${params.returnRequestId.slice(0, 8).toUpperCase()}</p>
+          <p style="margin:0"><strong>Reason:</strong> ${params.reason}</p>
+        </div>
+        <p>Our team will review your request and get back to you within 2–3 business days.</p>
+        <p style="color:#666;font-size:14px">
+          You can track your return status in your
+          <a href="${siteUrl}/profile/orders/${params.orderId}">order page</a>.
+        </p>
         <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
         <p style="color:#999;font-size:12px">Amazone — Your one-stop shop</p>
       </div>

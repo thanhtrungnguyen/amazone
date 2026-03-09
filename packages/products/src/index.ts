@@ -16,5 +16,11 @@ export {
   countProducts,
   deleteProduct,
   getRelatedProducts,
+  getLowStockProducts,
+  sendLowStockAlertEmails,
+  buildLowStockEmailHtml,
+  LOW_STOCK_THRESHOLD,
   type RelatedProduct,
+  type LowStockProduct,
+  type SendEmailFn,
 } from "./actions";

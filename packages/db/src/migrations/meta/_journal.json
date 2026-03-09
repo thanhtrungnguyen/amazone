@@ -22,6 +22,20 @@
       "when": 1772875737078,
       "tag": "0002_aberrant_ben_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1741478400000,
+      "tag": "0003_return_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1741564800000,
+      "tag": "0004_coupons",
+      "breakpoints": true
     }
   ]
 }

@@ -36,6 +36,7 @@ import {
 import { auth } from "@/lib/auth";
 import { getOrderDetail } from "../../actions";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { CancelOrderButton, RequestReturnButton } from "./order-actions";
 
 // ── Status timeline configuration ──────────────────────────────────
 
@@ -59,6 +60,7 @@ const STATUS_ORDER: Record<string, number> = {
   delivered: 4,
   cancelled: -1,
   refunded: -1,
+  return_requested: -1,
 };
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -127,31 +129,40 @@ function StatusTimeline({
 }): React.ReactElement {
   const isCancelled = status === "cancelled";
   const isRefunded = status === "refunded";
+  const isReturnRequested = status === "return_requested";
   const currentIndex = STATUS_ORDER[status] ?? 0;
 
-  if (isCancelled || isRefunded) {
+  if (isCancelled || isRefunded || isReturnRequested) {
+    const config = isCancelled
+      ? {
+          borderClass: "border-red-200 bg-red-50",
+          icon: <XCircle className="h-6 w-6 text-red-600" />,
+          title: "Order Cancelled",
+          description: "This order has been cancelled.",
+        }
+      : isReturnRequested
+        ? {
+            borderClass: "border-amber-200 bg-amber-50",
+            icon: <RotateCcw className="h-6 w-6 text-amber-600" />,
+            title: "Return Requested",
+            description:
+              "Your return request is under review. We will be in touch within 2–3 business days.",
+          }
+        : {
+            borderClass: "border-gray-200 bg-gray-50",
+            icon: <RotateCcw className="h-6 w-6 text-gray-600" />,
+            title: "Order Refunded",
+            description: "This order has been refunded.",
+          };
+
     return (
       <div
-        className={`flex items-center gap-3 rounded-lg border p-4 ${
-          isCancelled
-            ? "border-red-200 bg-red-50"
-            : "border-gray-200 bg-gray-50"
-        }`}
+        className={`flex items-center gap-3 rounded-lg border p-4 ${config.borderClass}`}
       >
-        {isCancelled ? (
-          <XCircle className="h-6 w-6 text-red-600" />
-        ) : (
-          <RotateCcw className="h-6 w-6 text-gray-600" />
-        )}
+        {config.icon}
         <div>
-          <p className="font-medium text-foreground">
-            {isCancelled ? "Order Cancelled" : "Order Refunded"}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {isCancelled
-              ? "This order has been cancelled."
-              : "This order has been refunded."}
-          </p>
+          <p className="font-medium text-foreground">{config.title}</p>
+          <p className="text-sm text-muted-foreground">{config.description}</p>
         </div>
       </div>
     );
@@ -240,6 +251,13 @@ export default async function OrderDetailPage({
     0,
   );
 
+  const isCancellable =
+    order.status === "pending" ||
+    order.status === "confirmed" ||
+    order.status === "processing";
+
+  const isReturnable = order.status === "delivered";
+
   return (
     <div>
       <Breadcrumbs
@@ -262,7 +280,7 @@ export default async function OrderDetailPage({
       </div>
 
       {/* Order header */}
-      <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-bold sm:text-3xl">
@@ -274,9 +292,30 @@ export default async function OrderDetailPage({
             Placed on {formatDate(order.createdAt)}
           </p>
         </div>
-        <p className="text-2xl font-bold">
-          {formatPrice(order.totalInCents)}
-        </p>
+
+        <div className="flex flex-col items-start gap-3 sm:items-end">
+          <p className="text-2xl font-bold">
+            {formatPrice(order.totalInCents)}
+          </p>
+
+          {/* Customer action buttons */}
+          {(isCancellable || isReturnable) && (
+            <div className="flex flex-wrap gap-2">
+              {isCancellable && (
+                <CancelOrderButton
+                  orderId={order.id}
+                  userId={session.user.id}
+                />
+              )}
+              {isReturnable && (
+                <RequestReturnButton
+                  orderId={order.id}
+                  userId={session.user.id}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Status timeline */}

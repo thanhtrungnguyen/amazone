@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { formatPrice } from "@amazone/shared-utils";
 import { auth } from "@/lib/auth";
+import LowStockAlert from "./low-stock-alert";
+import SendLowStockButton from "./send-low-stock-button";
 
 export const metadata = {
   title: "Seller Dashboard -- Amazone",
@@ -235,12 +237,18 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
   return (
     <div>
       {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back, {session.user.name ?? "Seller"}
-        </p>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back, {session.user.name ?? "Seller"}
+          </p>
+        </div>
+        <SendLowStockButton sellerId={session.user.id} />
       </div>
+
+      {/* Low-stock alert banner — renders nothing when all stock is healthy */}
+      <LowStockAlert sellerId={session.user.id} />
 
       {/* Stats row */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

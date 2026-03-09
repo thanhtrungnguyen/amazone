@@ -1,0 +1,3 @@
+-- This file was created in error and superseded by 0004_coupons.sql.
+-- It is kept as a placeholder so the filesystem index remains consistent.
+-- Do NOT run this file directly.

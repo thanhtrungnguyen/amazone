@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -23,6 +23,8 @@ import {
   CreditCard,
   Check,
   MapPin,
+  Tag,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -45,7 +47,8 @@ import {
 import { useCartStore } from "@/stores/cart-store";
 import { formatPrice } from "@amazone/shared-utils";
 import { EmptyState } from "@amazone/shared-ui";
-import { submitCheckout } from "./actions";
+import { submitCheckout, validateCouponCode } from "./actions";
+import type { ApplyCouponResult } from "@amazone/checkout";
 
 // ─── Constants ──────────────────────────────────────────
 
@@ -79,6 +82,15 @@ const STEPS = [
 ] as const;
 
 type StepId = (typeof STEPS)[number]["id"];
+
+// ─── Coupon state ────────────────────────────────────────
+
+interface AppliedCoupon {
+  code: string;
+  discountCents: number;
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+}
 
 // ─── Validation Schema ──────────────────────────────────
 
@@ -168,6 +180,148 @@ function StepIndicator({
   );
 }
 
+// ─── Coupon Input ────────────────────────────────────────
+
+function CouponInput({
+  subtotalCents,
+  appliedCoupon,
+  onApply,
+  onRemove,
+  disabled,
+}: {
+  subtotalCents: number;
+  appliedCoupon: AppliedCoupon | null;
+  onApply: (coupon: AppliedCoupon) => void;
+  onRemove: () => void;
+  disabled: boolean;
+}): React.ReactElement {
+  const [inputValue, setInputValue] = useState("");
+  const [isApplying, setIsApplying] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleApply = useCallback(async () => {
+    const code = inputValue.trim();
+    if (!code) return;
+
+    setIsApplying(true);
+    setCouponError(null);
+
+    try {
+      const result: ApplyCouponResult = await validateCouponCode(
+        code,
+        subtotalCents
+      );
+
+      if (result.valid) {
+        onApply({
+          code: result.code,
+          discountCents: result.discountCents,
+          discountType: result.discountType,
+          discountValue: result.discountValue,
+        });
+        setInputValue("");
+        setCouponError(null);
+      } else {
+        setCouponError(result.error);
+      }
+    } catch {
+      setCouponError("Unable to validate coupon. Please try again.");
+    } finally {
+      setIsApplying(false);
+    }
+  }, [inputValue, subtotalCents, onApply]);
+
+  const handleRemove = useCallback(() => {
+    onRemove();
+    setCouponError(null);
+    setInputValue("");
+    // Return focus to the input for keyboard users
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, [onRemove]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        void handleApply();
+      }
+    },
+    [handleApply]
+  );
+
+  if (appliedCoupon) {
+    return (
+      <div className="flex items-center justify-between rounded-md border border-green-200 bg-green-50 px-3 py-2 dark:border-green-800 dark:bg-green-950">
+        <div className="flex items-center gap-2">
+          <Tag className="h-4 w-4 text-green-600 dark:text-green-400" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-medium text-green-700 dark:text-green-300">
+              {appliedCoupon.code}
+            </p>
+            <p className="text-xs text-green-600 dark:text-green-400">
+              {appliedCoupon.discountType === "percentage"
+                ? `${appliedCoupon.discountValue}% off`
+                : `${formatPrice(appliedCoupon.discountValue)} off`}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleRemove}
+          disabled={disabled}
+          className="rounded p-1 text-green-600 hover:bg-green-100 hover:text-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 dark:text-green-400 dark:hover:bg-green-900"
+          aria-label="Remove coupon"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex gap-2">
+        <Input
+          ref={inputRef}
+          value={inputValue}
+          onChange={(e) => {
+            setInputValue(e.target.value.toUpperCase());
+            if (couponError) setCouponError(null);
+          }}
+          onKeyDown={handleKeyDown}
+          placeholder="Coupon code"
+          maxLength={50}
+          disabled={disabled || isApplying}
+          aria-label="Coupon code"
+          aria-describedby={couponError ? "coupon-error" : undefined}
+          aria-invalid={!!couponError}
+          className={couponError ? "border-destructive" : ""}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void handleApply()}
+          disabled={!inputValue.trim() || disabled || isApplying}
+          className="shrink-0"
+        >
+          {isApplying ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            "Apply"
+          )}
+        </Button>
+      </div>
+      {couponError && (
+        <p id="coupon-error" className="text-xs text-destructive" role="alert">
+          {couponError}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Order Summary Sidebar ──────────────────────────────
 
 function OrderSummary({
@@ -175,15 +329,26 @@ function OrderSummary({
   currentStep,
   onNext,
   onSubmit,
+  appliedCoupon,
+  onCouponApply,
+  onCouponRemove,
 }: {
   isSubmitting: boolean;
   currentStep: StepId;
   onNext: () => void;
   onSubmit: () => void;
+  appliedCoupon: AppliedCoupon | null;
+  onCouponApply: (coupon: AppliedCoupon) => void;
+  onCouponRemove: () => void;
 }): React.ReactElement {
   const items = useCartStore((s) => s.items);
   const totalPrice = useCartStore((s) => s.totalPrice());
   const totalItems = useCartStore((s) => s.totalItems());
+
+  const finalTotal = Math.max(
+    0,
+    totalPrice - (appliedCoupon?.discountCents ?? 0)
+  );
 
   return (
     <Card className="sticky top-24">
@@ -210,13 +375,40 @@ function OrderSummary({
             <span className="text-muted-foreground">Calculated at payment</span>
           </div>
 
+          {/* Discount line — only shown when a coupon is applied */}
+          {appliedCoupon && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                <Tag className="h-3.5 w-3.5" aria-hidden="true" />
+                Discount ({appliedCoupon.code})
+              </span>
+              <span className="text-green-600 dark:text-green-400">
+                -{formatPrice(appliedCoupon.discountCents)}
+              </span>
+            </div>
+          )}
+
           <Separator />
 
           <div className="flex items-center justify-between font-bold">
             <span>Estimated Total</span>
-            <span className="text-lg">{formatPrice(totalPrice)}</span>
+            <span className="text-lg">{formatPrice(finalTotal)}</span>
           </div>
         </div>
+
+        {/* Coupon input — only shown on review step */}
+        {currentStep === "review" && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-sm font-medium">Have a coupon?</p>
+            <CouponInput
+              subtotalCents={totalPrice}
+              appliedCoupon={appliedCoupon}
+              onApply={onCouponApply}
+              onRemove={onCouponRemove}
+              disabled={isSubmitting}
+            />
+          </div>
+        )}
 
         {/* Compact item list */}
         <div className="mt-4 max-h-48 overflow-y-auto">
@@ -663,6 +855,7 @@ export function CheckoutForm(): React.ReactElement {
   const clearCart = useCartStore((s) => s.clear);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState<StepId>("shipping");
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
 
   const form = useForm<ShippingFormData>({
     resolver: zodResolver(shippingSchema),
@@ -709,9 +902,10 @@ export function CheckoutForm(): React.ReactElement {
 
     try {
       const data = getValues();
-      const payload: ShippingFormData = {
+      const payload: ShippingFormData & { couponCode?: string } = {
         ...data,
         shippingState: data.shippingState || undefined,
+        ...(appliedCoupon ? { couponCode: appliedCoupon.code } : {}),
       };
 
       const response = await submitCheckout(payload);
@@ -734,7 +928,7 @@ export function CheckoutForm(): React.ReactElement {
     } finally {
       setIsSubmitting(false);
     }
-  }, [trigger, getValues, clearCart, goToStep]);
+  }, [trigger, getValues, clearCart, goToStep, appliedCoupon]);
 
   if (items.length === 0) {
     return (
@@ -820,7 +1014,7 @@ export function CheckoutForm(): React.ReactElement {
             {currentStep === "shipping" && (
               <>
                 <div />
-                <Button type="button" onClick={handleNextToReview}>
+                <Button type="button" onClick={() => void handleNextToReview()}>
                   Continue to Review
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -830,7 +1024,7 @@ export function CheckoutForm(): React.ReactElement {
             {currentStep === "review" && (
               <Button
                 type="button"
-                onClick={handlePlaceOrder}
+                onClick={() => void handlePlaceOrder()}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -854,8 +1048,11 @@ export function CheckoutForm(): React.ReactElement {
           <OrderSummary
             isSubmitting={isSubmitting}
             currentStep={currentStep}
-            onNext={handleNextToReview}
-            onSubmit={handlePlaceOrder}
+            onNext={() => void handleNextToReview()}
+            onSubmit={() => void handlePlaceOrder()}
+            appliedCoupon={appliedCoupon}
+            onCouponApply={setAppliedCoupon}
+            onCouponRemove={() => setAppliedCoupon(null)}
           />
         </div>
       </div>

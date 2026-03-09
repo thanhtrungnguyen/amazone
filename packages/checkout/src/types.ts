@@ -9,6 +9,8 @@ export const checkoutSessionSchema = z.object({
   shippingZip: z.string().min(1).max(20),
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),
+  /** Optional coupon code to apply a discount to this session. */
+  couponCode: z.string().min(1).max(50).optional(),
 });
 
 export type CheckoutSessionInput = z.infer<typeof checkoutSessionSchema>;
@@ -25,3 +27,8 @@ export interface WebhookResult {
   orderId?: string;
   userId?: string;
 }
+
+/** Returned by applyCoupon. */
+export type ApplyCouponResult =
+  | { valid: true; discountCents: number; code: string; discountType: "percentage" | "fixed"; discountValue: number }
+  | { valid: false; error: string };

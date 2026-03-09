@@ -7,6 +7,12 @@ import { ProductSearch } from "./product-search";
 import { PaginationControls } from "@/components/pagination-controls";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import type { BreadcrumbItem } from "@/components/breadcrumbs";
+import {
+  ProductFiltersSidebar,
+  ProductFiltersMobile,
+  parseFilterParams,
+  type ActiveFilters,
+} from "@/components/product-filters";
 
 export const revalidate = 60;
 
@@ -44,6 +50,10 @@ interface ProductsPageProps {
     category?: string;
     sort?: string;
     cursor?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    rating?: string;
+    inStock?: string;
   }>;
 }
 
@@ -52,6 +62,10 @@ async function getProductsData(params: {
   category?: string;
   sort?: string;
   cursor?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  rating?: string;
+  inStock?: string;
 }): Promise<{
   products: ProductListItem[];
   categories: CategoryItem[];
@@ -61,7 +75,19 @@ async function getProductsData(params: {
   const { listProducts, countProducts } = await import("@amazone/products");
   const { db } = await import("@amazone/db");
 
-  const sortBy = (params.sort as "price_asc" | "price_desc" | "newest" | "rating" | "name") || "newest";
+  const sortBy =
+    (params.sort as
+      | "price_asc"
+      | "price_desc"
+      | "newest"
+      | "rating"
+      | "name"
+      | "featured") || "featured";
+
+  const minPrice = params.minPrice ? parseInt(params.minPrice, 10) : undefined;
+  const maxPrice = params.maxPrice ? parseInt(params.maxPrice, 10) : undefined;
+  const minRating = params.rating ? parseFloat(params.rating) : undefined;
+  const inStock = params.inStock === "1" ? true : undefined;
 
   const [rawProducts, totalCount, categories] = await Promise.all([
     listProducts({
@@ -71,11 +97,19 @@ async function getProductsData(params: {
       isActive: true,
       cursor: params.cursor,
       limit: PRODUCTS_PER_PAGE + 1,
+      minPrice: isNaN(minPrice!) ? undefined : minPrice,
+      maxPrice: isNaN(maxPrice!) ? undefined : maxPrice,
+      minRating: isNaN(minRating!) ? undefined : minRating,
+      inStock,
     }),
     countProducts({
       search: params.search,
       categoryId: params.category,
       isActive: true,
+      minPrice: isNaN(minPrice!) ? undefined : minPrice,
+      maxPrice: isNaN(maxPrice!) ? undefined : maxPrice,
+      minRating: isNaN(minRating!) ? undefined : minRating,
+      inStock,
     }),
     db.query.categories.findMany(),
   ]);
@@ -125,27 +159,42 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     breadcrumbItems.push({ label: activeCategoryName });
   }
 
+  // Build activeFilters from the raw string params
+  const urlParams = new URLSearchParams();
+  if (params.minPrice) urlParams.set("minPrice", params.minPrice);
+  if (params.maxPrice) urlParams.set("maxPrice", params.maxPrice);
+  if (params.rating) urlParams.set("rating", params.rating);
+  if (params.inStock) urlParams.set("inStock", params.inStock);
+  if (params.sort) urlParams.set("sort", params.sort);
+  const activeFilters: ActiveFilters = parseFilterParams(urlParams);
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <Breadcrumbs items={breadcrumbItems} />
-      {/* Header */}
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+      {/* Top header row */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Products</h1>
-          <p className="text-muted-foreground">
-            Showing {products.length} of {totalCount} product{totalCount !== 1 ? "s" : ""}
+          <p className="mt-1 text-sm text-muted-foreground">
+            Showing {products.length} of {totalCount} product
+            {totalCount !== 1 ? "s" : ""}
             {params.search ? ` for "${params.search}"` : ""}
           </p>
         </div>
-        <ProductSearch
-          defaultSearch={params.search}
-          defaultSort={params.sort}
-        />
+        <div className="flex items-center gap-2">
+          {/* Mobile filter trigger — hidden on desktop */}
+          <ProductFiltersMobile basePath="/products" activeFilters={activeFilters} />
+          <ProductSearch
+            defaultSearch={params.search}
+            defaultSort={params.sort}
+          />
+        </div>
       </div>
 
-      {/* Category filters */}
+      {/* Category pills */}
       <div className="mb-6 flex flex-wrap gap-2">
-        <Link href="/products">
+        <Link href={`/products${params.search ? `?search=${params.search}` : ""}`}>
           <Badge
             variant={!params.category ? "default" : "outline"}
             className="cursor-pointer px-3 py-1"
@@ -168,49 +217,57 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         ))}
       </div>
 
-      {/* Product grid */}
-      <Suspense fallback={<ProductGridSkeleton count={12} />}>
-        {products.length > 0 ? (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {products.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  name={product.name}
-                  slug={product.slug}
-                  priceInCents={product.price}
-                  compareAtPriceInCents={product.compareAtPrice ?? undefined}
-                  image={product.images?.[0] ?? null}
-                  rating={product.avgRating}
-                  reviewCount={product.reviewCount}
-                  badge={product.isFeatured ? "Featured" : undefined}
+      {/* Two-column layout: sidebar + grid */}
+      <div className="flex gap-6">
+        {/* Desktop filter sidebar */}
+        <ProductFiltersSidebar basePath="/products" activeFilters={activeFilters} />
+
+        {/* Product grid */}
+        <div className="min-w-0 flex-1">
+          <Suspense fallback={<ProductGridSkeleton count={12} />}>
+            {products.length > 0 ? (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+                  {products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      name={product.name}
+                      slug={product.slug}
+                      priceInCents={product.price}
+                      compareAtPriceInCents={product.compareAtPrice ?? undefined}
+                      image={product.images?.[0] ?? null}
+                      rating={product.avgRating}
+                      reviewCount={product.reviewCount}
+                      badge={product.isFeatured ? "Featured" : undefined}
+                    />
+                  ))}
+                </div>
+                <PaginationControls
+                  hasMore={hasMore}
+                  lastCursor={lastCursor}
                 />
-              ))}
-            </div>
-            <PaginationControls
-              hasMore={hasMore}
-              lastCursor={lastCursor}
-            />
-          </>
-        ) : (
-          <EmptyState
-            icon={<Package className="h-6 w-6" />}
-            title="No products found"
-            description={
-              params.search
-                ? `No results for "${params.search}". Try a different search term.`
-                : "No products match the selected filters."
-            }
-            action={
-              <Link href="/products">
-                <Badge variant="outline" className="cursor-pointer">
-                  Clear filters
-                </Badge>
-              </Link>
-            }
-          />
-        )}
-      </Suspense>
+              </>
+            ) : (
+              <EmptyState
+                icon={<Package className="h-6 w-6" />}
+                title="No products found"
+                description={
+                  params.search
+                    ? `No results for "${params.search}". Try a different search term.`
+                    : "No products match the selected filters."
+                }
+                action={
+                  <Link href="/products">
+                    <Badge variant="outline" className="cursor-pointer">
+                      Clear filters
+                    </Badge>
+                  </Link>
+                }
+              />
+            )}
+          </Suspense>
+        </div>
+      </div>
     </div>
   );
 }

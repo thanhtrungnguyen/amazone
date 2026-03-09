@@ -25,7 +25,8 @@ interface DashboardOrder {
     | "shipped"
     | "delivered"
     | "cancelled"
-    | "refunded";
+    | "refunded"
+    | "return_requested";
   totalInCents: number;
   shippingName: string;
   shippingCity: string;

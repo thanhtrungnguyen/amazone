@@ -2,6 +2,13 @@
 
 import { db, orders, reviews, users } from "@amazone/db";
 import { count, sum, eq, and, desc, lt, notInArray } from "drizzle-orm";
+import { cancelOrder, requestReturn } from "@amazone/orders";
+import {
+  sendOrderCancellationEmail,
+  sendReturnRequestEmail,
+} from "@/lib/email";
+import { logger } from "@amazone/shared-utils";
+import type { ActionResult } from "@amazone/orders";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -222,4 +229,80 @@ export async function getOrderDetail(
     updatedAt: order.updatedAt,
     items,
   };
+}
+
+// ── Cancel Order (web wrapper — calls domain action + sends email) ──────────
+
+export async function cancelOrderAction(
+  userId: string,
+  orderId: string
+): Promise<ActionResult<{ orderId: string }>> {
+  const result = await cancelOrder(orderId, userId);
+
+  if (result.success) {
+    // Best-effort email — failures are logged but never surface to the user
+    try {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { email: true, name: true },
+      });
+
+      const order = await db.query.orders.findFirst({
+        where: eq(orders.id, orderId),
+        columns: { totalInCents: true },
+      });
+
+      if (user && order) {
+        await sendOrderCancellationEmail({
+          to: user.email,
+          customerName: user.name,
+          orderId,
+          totalInCents: order.totalInCents,
+        });
+      }
+    } catch (err) {
+      logger.error(
+        { err, orderId, userId },
+        "cancelOrderAction: failed to send cancellation email"
+      );
+    }
+  }
+
+  return result;
+}
+
+// ── Request Return (web wrapper — calls domain action + sends email) ─────────
+
+export async function requestReturnAction(
+  userId: string,
+  orderId: string,
+  reason: string
+): Promise<ActionResult<{ returnRequestId: string }>> {
+  const result = await requestReturn(orderId, userId, reason);
+
+  if (result.success) {
+    try {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { email: true, name: true },
+      });
+
+      if (user) {
+        await sendReturnRequestEmail({
+          to: user.email,
+          customerName: user.name,
+          orderId,
+          reason,
+          returnRequestId: result.data.returnRequestId,
+        });
+      }
+    } catch (err) {
+      logger.error(
+        { err, orderId, userId },
+        "requestReturnAction: failed to send return request email"
+      );
+    }
+  }
+
+  return result;
 }

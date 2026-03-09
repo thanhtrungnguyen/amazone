@@ -32,6 +32,10 @@ const statusConfig: Record<
     label: "Refunded",
     className: "bg-gray-100 text-gray-800 border-gray-200",
   },
+  return_requested: {
+    label: "Return Requested",
+    className: "bg-amber-100 text-amber-800 border-amber-200",
+  },
 };
 
 interface OrderStatusBadgeProps {

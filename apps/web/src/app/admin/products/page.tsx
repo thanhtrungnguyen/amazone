@@ -5,35 +5,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { formatPrice } from "@amazone/shared-utils";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { ProductToggles } from "./product-toggles";
+import { ProductsTable } from "./products-table";
+import type { AdminProduct } from "./products-table";
 
 export const metadata = {
   title: "Products - Admin | Amazone",
   description: "Review, moderate, and manage all products on the platform.",
 };
-
-interface AdminProduct {
-  id: string;
-  name: string;
-  seller: string;
-  category: string | null;
-  priceCents: number;
-  stock: number;
-  isActive: boolean;
-  isFeatured: boolean;
-  createdDate: string;
-}
 
 // ---------------------------------------------------------------------------
 // Data fetcher
@@ -104,52 +84,12 @@ export default async function AdminProductsPage(): Promise<React.ReactElement> {
         <CardHeader>
           <CardTitle>All Products</CardTitle>
           <CardDescription>
-            {products.length} products listed on the platform.
+            {products.length} products listed on the platform. Select rows to
+            perform bulk actions.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product Name</TableHead>
-                <TableHead>Seller</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead>Status / Featured</TableHead>
-                <TableHead>Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell className="max-w-[240px] truncate font-medium">
-                    {product.name}
-                  </TableCell>
-                  <TableCell>{product.seller}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {product.category ?? "Uncategorized"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatPrice(product.priceCents)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {product.stock.toLocaleString()}
-                  </TableCell>
-                  <TableCell>
-                    <ProductToggles
-                      productId={product.id}
-                      isActive={product.isActive}
-                      isFeatured={product.isFeatured}
-                    />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {product.createdDate}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <ProductsTable initialProducts={products} />
         </CardContent>
       </Card>
     </div>

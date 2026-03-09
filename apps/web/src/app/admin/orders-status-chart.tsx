@@ -22,6 +22,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   delivered: "bg-green-500",
   cancelled: "bg-red-500",
   refunded: "bg-orange-500",
+  return_requested: "bg-amber-500",
 };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -32,6 +33,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   delivered: "Delivered",
   cancelled: "Cancelled",
   refunded: "Refunded",
+  return_requested: "Return Requested",
 };
 
 async function getOrdersByStatus(
