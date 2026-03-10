@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   FolderTree,
   RotateCcw,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,12 @@ export function AdminSidebarNav({
       label: "Returns",
       icon: RotateCcw,
       badge: pendingReturnsCount > 0 ? pendingReturnsCount : null,
+    },
+    {
+      href: "/admin/coupons",
+      label: "Coupons",
+      icon: Tag,
+      badge: null,
     },
   ] as const;
 

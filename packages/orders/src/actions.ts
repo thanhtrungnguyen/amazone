@@ -1,16 +1,18 @@
 "use server";
 
-import { db, orders, orderItems, products, returnRequests } from "@amazone/db";
-import { eq, and, desc, lt, sql } from "drizzle-orm";
+import { db, orders, orderItems, orderEvents, products, returnRequests } from "@amazone/db";
+import { eq, and, asc, desc, lt, sql } from "drizzle-orm";
 import { logger } from "@amazone/shared-utils";
 import {
   createOrderSchema,
   updateOrderStatusSchema,
   cancelOrderSchema,
   requestReturnSchema,
+  addOrderEventSchema,
   type CreateOrderInput,
   type UpdateOrderStatusInput,
   type ActionResult,
+  type OrderEvent,
 } from "./types";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -62,6 +64,13 @@ export async function createOrder(
       }))
     );
 
+    // Auto-create a timeline event for order creation
+    await tx.insert(orderEvents).values({
+      orderId: order.id,
+      type: "created",
+      message: "Order has been placed",
+    });
+
     return order;
   });
 }
@@ -111,22 +120,52 @@ export async function listOrders(
   });
 }
 
+/** Human-readable labels for order event types used in auto-generated messages. */
+const STATUS_EVENT_MESSAGES: Record<string, string> = {
+  pending: "Order has been placed",
+  confirmed: "Order has been confirmed",
+  processing: "Order is being processed",
+  shipped: "Order has been shipped",
+  out_for_delivery: "Order is out for delivery",
+  delivered: "Order has been delivered",
+  cancelled: "Order has been cancelled",
+  return_requested: "Return has been requested",
+};
+
 export async function updateOrderStatus(
   orderId: string,
-  input: UpdateOrderStatusInput
+  input: UpdateOrderStatusInput,
+  metadata?: Record<string, unknown> | null
 ): Promise<typeof orders.$inferSelect | undefined> {
   const validated = updateOrderStatusSchema.parse(input);
 
-  const [order] = await db
-    .update(orders)
-    .set({
-      status: validated.status,
-      updatedAt: new Date(),
-    })
-    .where(eq(orders.id, orderId))
-    .returning();
+  return db.transaction(async (tx) => {
+    const [order] = await tx
+      .update(orders)
+      .set({
+        status: validated.status,
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
 
-  return order;
+    if (order) {
+      // Auto-create a timeline event for every status change
+      await tx.insert(orderEvents).values({
+        orderId,
+        type: validated.status,
+        message: STATUS_EVENT_MESSAGES[validated.status] ?? `Status changed to ${validated.status}`,
+        metadata: metadata ?? null,
+      });
+
+      logger.info(
+        { orderId, status: validated.status },
+        "Order status updated with event"
+      );
+    }
+
+    return order;
+  });
 }
 
 // ─── Cancel Order ────────────────────────────────────────────────────────────
@@ -204,6 +243,13 @@ export async function cancelOrder(
         .update(orders)
         .set({ status: "cancelled", updatedAt: new Date() })
         .where(eq(orders.id, orderId));
+
+      // Record the cancellation event
+      await tx.insert(orderEvents).values({
+        orderId,
+        type: "cancelled",
+        message: "Order has been cancelled by customer",
+      });
 
       logger.info(
         { orderId, userId, itemCount: order.items.length },
@@ -295,6 +341,14 @@ export async function requestReturn(
         .set({ status: "return_requested", updatedAt: new Date() })
         .where(eq(orders.id, orderId));
 
+      // Record the return request event
+      await tx.insert(orderEvents).values({
+        orderId,
+        type: "return_requested",
+        message: "Return has been requested by customer",
+        metadata: { reason: parsed.data.reason, returnRequestId: returnRequest.id },
+      });
+
       logger.info(
         { orderId, userId, returnRequestId: returnRequest.id },
         "Return request created"
@@ -305,5 +359,77 @@ export async function requestReturn(
   } catch (err) {
     logger.error({ err, orderId, userId }, "requestReturn: unexpected error");
     return { success: false, error: "errors.server_error" };
+  }
+}
+
+// ─── Order Events ─────────────────────────────────────────────────────────────
+
+/**
+ * Add a custom event to the order timeline.
+ * Used by sellers/admins to record shipment, tracking info, etc.
+ */
+export async function addOrderEvent(
+  orderId: string,
+  type: string,
+  message: string,
+  metadata?: Record<string, unknown> | null
+): Promise<ActionResult<{ eventId: string }>> {
+  const parsed = addOrderEventSchema.safeParse({
+    orderId,
+    type,
+    message,
+    metadata: metadata ?? null,
+  });
+
+  if (!parsed.success) {
+    return { success: false, error: "errors.invalid_input" };
+  }
+
+  try {
+    const [event] = await db
+      .insert(orderEvents)
+      .values({
+        orderId: parsed.data.orderId,
+        type: parsed.data.type,
+        message: parsed.data.message,
+        metadata: parsed.data.metadata ?? null,
+      })
+      .returning({ id: orderEvents.id });
+
+    logger.info(
+      { orderId, type, eventId: event.id },
+      "Order event added"
+    );
+
+    return { success: true, data: { eventId: event.id } };
+  } catch (err) {
+    logger.error({ err, orderId, type }, "addOrderEvent: unexpected error");
+    return { success: false, error: "errors.server_error" };
+  }
+}
+
+/**
+ * Retrieve all timeline events for an order, ordered chronologically (oldest first).
+ */
+export async function getOrderEvents(
+  orderId: string
+): Promise<OrderEvent[]> {
+  try {
+    const events = await db.query.orderEvents.findMany({
+      where: eq(orderEvents.orderId, orderId),
+      orderBy: asc(orderEvents.createdAt),
+    });
+
+    return events.map((e) => ({
+      id: e.id,
+      orderId: e.orderId,
+      type: e.type,
+      message: e.message,
+      metadata: e.metadata ?? null,
+      createdAt: e.createdAt,
+    }));
+  } catch (err) {
+    logger.error({ err, orderId }, "getOrderEvents: unexpected error");
+    return [];
   }
 }

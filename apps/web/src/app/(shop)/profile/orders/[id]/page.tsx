@@ -35,8 +35,10 @@ import {
 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getOrderDetail } from "../../actions";
+import { getOrderEvents } from "@amazone/orders";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CancelOrderButton, RequestReturnButton } from "./order-actions";
+import { OrderTimeline } from "./order-timeline";
 
 // ── Status timeline configuration ──────────────────────────────────
 
@@ -245,6 +247,9 @@ export default async function OrderDetailPage({
     notFound();
   }
 
+  // Fetch timeline events in parallel with order load (already resolved above)
+  const events = await getOrderEvents(order.id);
+
   const orderNumber = generateOrderNumber(order.id, order.createdAt);
   const subtotalInCents = order.items.reduce(
     (sum, item) => sum + item.priceInCents * item.quantity,
@@ -335,6 +340,21 @@ export default async function OrderDetailPage({
           )}
         </CardContent>
       </Card>
+
+      {/* Tracking timeline */}
+      {events.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Truck className="h-5 w-5" />
+              Tracking Timeline
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <OrderTimeline events={events} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Order items table */}
       <Card className="mb-6">

@@ -1,6 +1,6 @@
 "use server";
 
-import { db, products, categories, users } from "@amazone/db";
+import { db, products, categories, users, orderItems, orders } from "@amazone/db";
 import {
   eq,
   and,
@@ -17,6 +17,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { cached, invalidateCache, createLogger } from "@amazone/shared-utils";
 import {
   createProductSchema,
@@ -764,5 +765,203 @@ export async function sendLowStockAlertEmails(params: {
   } catch (error) {
     logger.error({ err: error }, "sendLowStockAlertEmails: unexpected error");
     return { success: false, error: "errors.low_stock.send_failed" };
+  }
+}
+
+// ─── Product Recommendations ─────────────────────────────────────────────────
+
+export interface RecommendedProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  compareAtPrice: number | null;
+  images: (string | null)[] | null;
+  avgRating: number;
+  reviewCount: number;
+}
+
+/**
+ * Products that frequently appear in the same orders as the given product.
+ *
+ * Performs a self-join on order_items: for every order that contains
+ * `productId`, find the other products in that order, grouped and ranked
+ * by co-occurrence count.
+ */
+export async function getFrequentlyBoughtTogether(
+  productId: string,
+  limit: number = 4
+): Promise<{ success: true; data: RecommendedProduct[] } | { success: false; error: string }> {
+  try {
+    // Use Drizzle alias for the self-join on order_items
+    const oi1 = orderItems;
+    const oi2 = alias(orderItems, "oi2");
+
+    const rows = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        slug: products.slug,
+        price: products.price,
+        compareAtPrice: products.compareAtPrice,
+        images: products.images,
+        avgRating: products.avgRating,
+        reviewCount: products.reviewCount,
+        coCount: count(oi2.id).as("co_count"),
+      })
+      .from(oi1)
+      .innerJoin(oi2, and(eq(oi1.orderId, oi2.orderId), ne(oi1.productId, oi2.productId)))
+      .innerJoin(products, eq(oi2.productId, products.id))
+      .where(and(eq(oi1.productId, productId), eq(products.isActive, true)))
+      .groupBy(
+        products.id,
+        products.name,
+        products.slug,
+        products.price,
+        products.compareAtPrice,
+        products.images,
+        products.avgRating,
+        products.reviewCount
+      )
+      .orderBy(sql`co_count DESC`)
+      .limit(limit);
+
+    return {
+      success: true,
+      data: rows.map(({ coCount: _, ...rest }) => rest),
+    };
+  } catch (error) {
+    logger.error({ err: error, productId }, "getFrequentlyBoughtTogether: DB error");
+    return { success: false, error: "errors.recommendations.fetch_failed" };
+  }
+}
+
+/**
+ * Top products in a category ranked by review count + average rating.
+ *
+ * Uses a composite score: `reviewCount * 1000 + avgRating` so that products
+ * with many reviews rank first, with ties broken by rating.
+ */
+export async function getPopularInCategory(
+  categoryId: string,
+  limit: number = 6
+): Promise<{ success: true; data: RecommendedProduct[] } | { success: false; error: string }> {
+  try {
+    const rows = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        slug: products.slug,
+        price: products.price,
+        compareAtPrice: products.compareAtPrice,
+        images: products.images,
+        avgRating: products.avgRating,
+        reviewCount: products.reviewCount,
+      })
+      .from(products)
+      .where(
+        and(
+          eq(products.categoryId, categoryId),
+          eq(products.isActive, true)
+        )
+      )
+      .orderBy(
+        desc(sql`${products.reviewCount} * 1000 + ${products.avgRating}`)
+      )
+      .limit(limit);
+
+    return { success: true, data: rows };
+  } catch (error) {
+    logger.error({ err: error, categoryId }, "getPopularInCategory: DB error");
+    return { success: false, error: "errors.recommendations.fetch_failed" };
+  }
+}
+
+/**
+ * Products with the most orders in the last 30 days.
+ *
+ * Joins order_items -> orders, filters orders by created_at >= 30 days ago,
+ * groups by product, and orders by total quantity sold descending.
+ */
+export async function getTrendingProducts(
+  limit: number = 6
+): Promise<{ success: true; data: RecommendedProduct[] } | { success: false; error: string }> {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const rows = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        slug: products.slug,
+        price: products.price,
+        compareAtPrice: products.compareAtPrice,
+        images: products.images,
+        avgRating: products.avgRating,
+        reviewCount: products.reviewCount,
+        totalSold: sql<number>`cast(sum(${orderItems.quantity}) as int)`.as("total_sold"),
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(products, eq(orderItems.productId, products.id))
+      .where(
+        and(
+          gte(orders.createdAt, thirtyDaysAgo),
+          eq(products.isActive, true)
+        )
+      )
+      .groupBy(
+        products.id,
+        products.name,
+        products.slug,
+        products.price,
+        products.compareAtPrice,
+        products.images,
+        products.avgRating,
+        products.reviewCount
+      )
+      .orderBy(sql`total_sold DESC`)
+      .limit(limit);
+
+    return {
+      success: true,
+      data: rows.map(({ totalSold: _, ...rest }) => rest),
+    };
+  } catch (error) {
+    logger.error({ err: error }, "getTrendingProducts: DB error");
+    return { success: false, error: "errors.recommendations.fetch_failed" };
+  }
+}
+
+/**
+ * Get a random active category that has at least one active product.
+ * Used by the home page to display "Popular in [Category]".
+ */
+export async function getRandomActiveCategory(): Promise<
+  { success: true; data: { id: string; name: string; slug: string } } | { success: false; error: string }
+> {
+  try {
+    const rows = await db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        slug: categories.slug,
+      })
+      .from(categories)
+      .innerJoin(products, eq(products.categoryId, categories.id))
+      .where(eq(products.isActive, true))
+      .groupBy(categories.id, categories.name, categories.slug)
+      .orderBy(sql`random()`)
+      .limit(1);
+
+    if (rows.length === 0) {
+      return { success: false, error: "errors.recommendations.no_categories" };
+    }
+
+    return { success: true, data: rows[0] };
+  } catch (error) {
+    logger.error({ err: error }, "getRandomActiveCategory: DB error");
+    return { success: false, error: "errors.recommendations.fetch_failed" };
   }
 }

@@ -13,6 +13,7 @@ import { ProductImageGallery } from "./product-image-gallery";
 import { ProductReviews } from "./product-reviews";
 import { ProductQA } from "./product-qa-list";
 import { RelatedProducts } from "./related-products";
+import { FrequentlyBoughtTogether } from "./frequently-bought-together";
 import { TrackProductView } from "@/components/track-product-view";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import type { BreadcrumbItem } from "@/components/breadcrumbs";
@@ -278,14 +279,35 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </Tabs>
       </div>
 
+      {/* Frequently Bought Together */}
+      <Suspense
+        fallback={
+          <div className="mt-12">
+            <Skeleton className="mb-6 h-8 w-64" />
+            <div className="flex gap-4 overflow-hidden">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="w-[calc(50%-0.5rem)] flex-shrink-0 space-y-3 sm:w-[calc(25%-0.75rem)]">
+                  <Skeleton className="aspect-square w-full rounded-lg" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="h-5 w-1/3" />
+                </div>
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <FrequentlyBoughtTogether productId={product.id} />
+      </Suspense>
+
       {/* Related Products */}
       <Suspense
         fallback={
           <div className="mt-12">
             <Skeleton className="mb-6 h-8 w-48" />
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="flex gap-4 overflow-hidden">
               {Array.from({ length: 4 }, (_, i) => (
-                <div key={i} className="space-y-3">
+                <div key={i} className="w-[calc(50%-0.5rem)] flex-shrink-0 space-y-3 sm:w-[calc(25%-0.75rem)]">
                   <Skeleton className="aspect-square w-full rounded-lg" />
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-3 w-1/2" />

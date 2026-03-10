@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -27,6 +29,9 @@ import {
   RotateCcw,
   Headphones,
 } from "lucide-react";
+
+import { TrendingProducts } from "@/components/trending-products";
+import { PopularInCategory } from "@/components/popular-in-category";
 
 const RecentlyViewed = dynamic(
   () =>
@@ -257,6 +262,27 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Trending Now */}
+      <Suspense
+        fallback={
+          <div className="mx-auto w-full max-w-6xl px-6 py-8">
+            <Skeleton className="mb-4 h-8 w-48" />
+            <div className="flex gap-4 overflow-hidden">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="w-[calc(50%-0.5rem)] flex-shrink-0 space-y-3 sm:w-[calc(25%-0.75rem)] lg:w-[calc(16.666%-0.833rem)]">
+                  <Skeleton className="aspect-square w-full rounded-lg" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="h-5 w-1/3" />
+                </div>
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <TrendingProducts />
+      </Suspense>
+
       {/* Recently Viewed */}
       <RecentlyViewed />
 
@@ -290,6 +316,27 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* Popular in Category */}
+      <Suspense
+        fallback={
+          <div className="mx-auto w-full max-w-6xl px-6 py-8">
+            <Skeleton className="mb-4 h-8 w-56" />
+            <div className="flex gap-4 overflow-hidden">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="w-[calc(50%-0.5rem)] flex-shrink-0 space-y-3 sm:w-[calc(25%-0.75rem)] lg:w-[calc(16.666%-0.833rem)]">
+                  <Skeleton className="aspect-square w-full rounded-lg" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="h-5 w-1/3" />
+                </div>
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <PopularInCategory />
+      </Suspense>
 
       <Separator />
 
