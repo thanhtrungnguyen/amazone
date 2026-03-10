@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
-import { sendWelcome } from "./actions";
+import { sendVerificationForNewUser } from "./actions";
 
 const signUpSchema = z.object({
   name: z.string().min(1, "Full name is required").max(255),
@@ -49,29 +48,23 @@ export function SignUpForm(): React.ReactElement {
         return;
       }
 
-      await createUser({
+      const newUser = await createUser({
         name: data.name,
         email: data.email,
         hashedPassword,
       });
 
-      // Send welcome email (fire-and-forget)
-      sendWelcome({ to: data.email, name: data.name });
-
-      // Auto sign-in after registration
-      const result = await signIn("credentials", {
+      // Send verification email
+      await sendVerificationForNewUser({
+        userId: newUser.id,
         email: data.email,
-        password: data.password,
-        redirect: false,
+        name: data.name,
       });
 
-      if (result?.error) {
-        setError("Account created but sign-in failed. Please sign in manually.");
-        return;
-      }
-
-      router.push("/");
-      router.refresh();
+      // Redirect to verification pending page
+      router.push(
+        `/verify-email/pending?email=${encodeURIComponent(data.email)}`
+      );
     } catch {
       setError("Failed to create account. Please try again.");
     }

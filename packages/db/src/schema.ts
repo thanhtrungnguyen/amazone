@@ -55,6 +55,10 @@ export const users = pgTable("users", {
   image: text("image"),
   hashedPassword: text("hashed_password"),
   role: userRoleEnum("role").default("customer").notNull(),
+  verificationToken: varchar("verification_token", { length: 255 }),
+  verificationTokenExpiry: timestamp("verification_token_expiry", {
+    mode: "date",
+  }),
   notificationPreferences: jsonb("notification_preferences").$type<{
     orderUpdates: boolean;
     shippingUpdates: boolean;
@@ -125,15 +129,20 @@ export const cartItems = pgTable(
     productId: uuid("product_id")
       .references(() => products.id, { onDelete: "cascade" })
       .notNull(),
+    variantId: uuid("variant_id").references(() => productVariants.id, {
+      onDelete: "set null",
+    }),
     quantity: integer("quantity").default(1).notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("cart_items_user_product_idx").on(
+    uniqueIndex("cart_items_user_product_variant_idx").on(
       table.userId,
-      table.productId
+      table.productId,
+      table.variantId
     ),
+    index("cart_items_variant_idx").on(table.variantId),
   ]
 );
 
@@ -409,6 +418,119 @@ export const answerHelpfulVotes = pgTable(
   ]
 );
 
+// ─── Product Variant Options ────────────────────────────
+
+export const productVariantOptions = pgTable(
+  "product_variant_options",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .references(() => products.id, { onDelete: "cascade" })
+      .notNull(),
+    name: varchar("name", { length: 100 }).notNull(), // e.g. "Size", "Color"
+    position: integer("position").default(0).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("pvo_product_idx").on(table.productId),
+    index("pvo_product_position_idx").on(table.productId, table.position),
+  ]
+);
+
+// ─── Product Variant Values ─────────────────────────────
+
+export const productVariantValues = pgTable(
+  "product_variant_values",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    optionId: uuid("option_id")
+      .references(() => productVariantOptions.id, { onDelete: "cascade" })
+      .notNull(),
+    value: varchar("value", { length: 255 }).notNull(), // e.g. "Large", "Red"
+    position: integer("position").default(0).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("pvv_option_idx").on(table.optionId),
+    index("pvv_option_position_idx").on(table.optionId, table.position),
+  ]
+);
+
+// ─── Product Variants ───────────────────────────────────
+
+export const productVariants = pgTable(
+  "product_variants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .references(() => products.id, { onDelete: "cascade" })
+      .notNull(),
+    sku: varchar("sku", { length: 255 }).unique(),
+    priceInCents: integer("price_in_cents"), // null means use product base price
+    stock: integer("stock").default(0).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("pv_product_idx").on(table.productId),
+    index("pv_sku_idx").on(table.sku),
+    index("pv_product_active_idx").on(table.productId, table.isActive),
+  ]
+);
+
+// ─── Product Variant Combinations ───────────────────────
+
+export const productVariantCombinations = pgTable(
+  "product_variant_combinations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    variantId: uuid("variant_id")
+      .references(() => productVariants.id, { onDelete: "cascade" })
+      .notNull(),
+    optionId: uuid("option_id")
+      .references(() => productVariantOptions.id, { onDelete: "cascade" })
+      .notNull(),
+    valueId: uuid("value_id")
+      .references(() => productVariantValues.id, { onDelete: "cascade" })
+      .notNull(),
+  },
+  (table) => [
+    index("pvc_variant_idx").on(table.variantId),
+    index("pvc_option_value_idx").on(table.optionId, table.valueId),
+    uniqueIndex("pvc_variant_option_idx").on(table.variantId, table.optionId),
+  ]
+);
+
+// ─── Addresses ─────────────────────────────────────────
+
+export const addresses = pgTable(
+  "addresses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    label: varchar("label", { length: 50 }).notNull(), // "Home", "Work", etc.
+    fullName: varchar("full_name", { length: 255 }).notNull(),
+    streetAddress: varchar("street_address", { length: 500 }).notNull(),
+    city: varchar("city", { length: 255 }).notNull(),
+    state: varchar("state", { length: 255 }),
+    zipCode: varchar("zip_code", { length: 20 }).notNull(),
+    country: varchar("country", { length: 2 }).notNull(),
+    phone: varchar("phone", { length: 30 }),
+    isDefault: boolean("is_default").default(false).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("addresses_user_idx").on(table.userId),
+    index("addresses_user_default_idx").on(table.userId, table.isDefault),
+  ]
+);
+
 // ─── Relations ──────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -421,6 +543,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   productQuestions: many(productQuestions),
   productAnswers: many(productAnswers),
   answerHelpfulVotes: many(answerHelpfulVotes),
+  addresses: many(addresses),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
@@ -445,6 +568,8 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   orderItems: many(orderItems),
   reviews: many(reviews),
   questions: many(productQuestions),
+  variantOptions: many(productVariantOptions),
+  variants: many(productVariants),
 }));
 
 export const cartItemsRelations = relations(cartItems, ({ one }) => ({
@@ -455,6 +580,10 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
   product: one(products, {
     fields: [cartItems.productId],
     references: [products.id],
+  }),
+  variant: one(productVariants, {
+    fields: [cartItems.variantId],
+    references: [productVariants.id],
   }),
 }));
 
@@ -584,3 +713,63 @@ export const answerHelpfulVotesRelations = relations(
     }),
   })
 );
+
+export const productVariantOptionsRelations = relations(
+  productVariantOptions,
+  ({ one, many }) => ({
+    product: one(products, {
+      fields: [productVariantOptions.productId],
+      references: [products.id],
+    }),
+    values: many(productVariantValues),
+    combinations: many(productVariantCombinations),
+  })
+);
+
+export const productVariantValuesRelations = relations(
+  productVariantValues,
+  ({ one, many }) => ({
+    option: one(productVariantOptions, {
+      fields: [productVariantValues.optionId],
+      references: [productVariantOptions.id],
+    }),
+    combinations: many(productVariantCombinations),
+  })
+);
+
+export const productVariantsRelations = relations(
+  productVariants,
+  ({ one, many }) => ({
+    product: one(products, {
+      fields: [productVariants.productId],
+      references: [products.id],
+    }),
+    combinations: many(productVariantCombinations),
+    cartItems: many(cartItems),
+  })
+);
+
+export const productVariantCombinationsRelations = relations(
+  productVariantCombinations,
+  ({ one }) => ({
+    variant: one(productVariants, {
+      fields: [productVariantCombinations.variantId],
+      references: [productVariants.id],
+    }),
+    option: one(productVariantOptions, {
+      fields: [productVariantCombinations.optionId],
+      references: [productVariantOptions.id],
+    }),
+    value: one(productVariantValues, {
+      fields: [productVariantCombinations.valueId],
+      references: [productVariantValues.id],
+    }),
+  })
+);
+
+export const addressesRelations = relations(addresses, ({ one }) => ({
+  user: one(users, {
+    fields: [addresses.userId],
+    references: [users.id],
+  }),
+}));

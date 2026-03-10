@@ -32,6 +32,13 @@ export const authConfig = {
       const protectedRoutes = ["/dashboard", "/admin", "/orders", "/settings", "/profile"];
       const adminRoutes = ["/admin"];
       const authRoutes = ["/sign-in", "/sign-up"];
+      // Verification pages are publicly accessible (for both logged-in and logged-out users)
+      const publicRoutes = ["/verify-email"];
+
+      // Allow access to public routes for everyone
+      if (publicRoutes.some((r) => pathname.startsWith(r))) {
+        return true;
+      }
 
       // Redirect logged-in users away from auth pages
       if (authRoutes.some((r) => pathname.startsWith(r))) {

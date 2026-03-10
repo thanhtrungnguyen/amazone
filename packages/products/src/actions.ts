@@ -1,6 +1,17 @@
 "use server";
 
-import { db, products, categories, users, orderItems, orders } from "@amazone/db";
+import {
+  db,
+  products,
+  categories,
+  users,
+  orderItems,
+  orders,
+  productVariantOptions,
+  productVariantValues,
+  productVariants,
+  productVariantCombinations,
+} from "@amazone/db";
 import {
   eq,
   and,
@@ -963,5 +974,190 @@ export async function getRandomActiveCategory(): Promise<
   } catch (error) {
     logger.error({ err: error }, "getRandomActiveCategory: DB error");
     return { success: false, error: "errors.recommendations.fetch_failed" };
+  }
+}
+
+// ─── Product Variants ─────────────────────────────────────────────────────────
+
+export interface VariantOptionValue {
+  id: string;
+  value: string;
+  position: number;
+}
+
+export interface VariantOption {
+  id: string;
+  name: string;
+  position: number;
+  values: VariantOptionValue[];
+}
+
+export interface VariantCombination {
+  optionId: string;
+  valueId: string;
+}
+
+export interface ProductVariantInfo {
+  id: string;
+  sku: string | null;
+  priceInCents: number | null;
+  stock: number;
+  isActive: boolean;
+  combinations: VariantCombination[];
+}
+
+export interface ProductVariantsData {
+  options: VariantOption[];
+  variants: ProductVariantInfo[];
+}
+
+/**
+ * Fetch all variant options, values, and variant combinations for a product.
+ * Returns structured data for the variant selector UI.
+ */
+export async function getProductVariants(
+  productId: string
+): Promise<ProductVariantsData> {
+  // Fetch options with values using Drizzle relations
+  const options = await db.query.productVariantOptions.findMany({
+    where: eq(productVariantOptions.productId, productId),
+    orderBy: asc(productVariantOptions.position),
+    with: {
+      values: {
+        orderBy: asc(productVariantValues.position),
+      },
+    },
+  });
+
+  // Fetch variants with their combinations
+  const variants = await db.query.productVariants.findMany({
+    where: eq(productVariants.productId, productId),
+    with: {
+      combinations: true,
+    },
+  });
+
+  return {
+    options: options.map((opt) => ({
+      id: opt.id,
+      name: opt.name,
+      position: opt.position,
+      values: opt.values.map((val) => ({
+        id: val.id,
+        value: val.value,
+        position: val.position,
+      })),
+    })),
+    variants: variants.map((v) => ({
+      id: v.id,
+      sku: v.sku,
+      priceInCents: v.priceInCents,
+      stock: v.stock,
+      isActive: v.isActive,
+      combinations: v.combinations.map((c) => ({
+        optionId: c.optionId,
+        valueId: c.valueId,
+      })),
+    })),
+  };
+}
+
+export interface CreateProductVariantInput {
+  combinations: { optionId: string; valueId: string }[];
+  sku?: string;
+  priceInCents?: number;
+  stock?: number;
+}
+
+/**
+ * Create a product variant with its option-value combinations.
+ * Used by sellers to define specific variants (e.g. "Large Red" with custom price/stock).
+ */
+export async function createProductVariant(
+  productId: string,
+  input: CreateProductVariantInput
+): Promise<
+  { success: true; data: { variantId: string } } | { success: false; error: string }
+> {
+  try {
+    if (input.combinations.length === 0) {
+      return { success: false, error: "At least one option-value combination is required" };
+    }
+
+    // Insert the variant row
+    const [variant] = await db
+      .insert(productVariants)
+      .values({
+        productId,
+        sku: input.sku ?? null,
+        priceInCents: input.priceInCents ?? null,
+        stock: input.stock ?? 0,
+      })
+      .returning();
+
+    // Insert all combination rows
+    await db.insert(productVariantCombinations).values(
+      input.combinations.map((combo) => ({
+        variantId: variant.id,
+        optionId: combo.optionId,
+        valueId: combo.valueId,
+      }))
+    );
+
+    return { success: true, data: { variantId: variant.id } };
+  } catch (error) {
+    logger.error({ err: error, productId }, "createProductVariant: DB error");
+    return { success: false, error: "Failed to create product variant" };
+  }
+}
+
+export interface CreateVariantOptionInput {
+  name: string;
+  position?: number;
+  values: { value: string; position?: number }[];
+}
+
+/**
+ * Create a variant option (e.g. "Size") with its values (e.g. "S", "M", "L").
+ * Returns the option ID and value IDs for use in variant combination creation.
+ */
+export async function createVariantOption(
+  productId: string,
+  input: CreateVariantOptionInput
+): Promise<
+  | { success: true; data: { optionId: string; valueIds: string[] } }
+  | { success: false; error: string }
+> {
+  try {
+    const [option] = await db
+      .insert(productVariantOptions)
+      .values({
+        productId,
+        name: input.name,
+        position: input.position ?? 0,
+      })
+      .returning();
+
+    const values = await db
+      .insert(productVariantValues)
+      .values(
+        input.values.map((v, idx) => ({
+          optionId: option.id,
+          value: v.value,
+          position: v.position ?? idx,
+        }))
+      )
+      .returning();
+
+    return {
+      success: true,
+      data: {
+        optionId: option.id,
+        valueIds: values.map((v) => v.id),
+      },
+    };
+  } catch (error) {
+    logger.error({ err: error, productId }, "createVariantOption: DB error");
+    return { success: false, error: "Failed to create variant option" };
   }
 }

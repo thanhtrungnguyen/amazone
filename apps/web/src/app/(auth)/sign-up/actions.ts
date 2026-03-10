@@ -1,15 +1,31 @@
 "use server";
 
-import { sendWelcomeEmail } from "@/lib/email";
+import { sendVerificationEmail } from "@/lib/email";
+import { generateVerificationToken } from "@amazone/users";
 
-export async function sendWelcome(params: {
-  to: string;
+export async function sendVerificationForNewUser(params: {
+  userId: string;
+  email: string;
   name: string;
-}): Promise<void> {
+}): Promise<{ success: boolean; error?: string }> {
   try {
-    await sendWelcomeEmail(params);
-  } catch {
-    // Fire-and-forget — don't fail signup if email is down
-    console.warn("[email] Failed to send welcome email to", params.to);
+    const result = await generateVerificationToken(params.userId);
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    await sendVerificationEmail({
+      to: params.email,
+      name: params.name,
+      token: result.data.token,
+    });
+
+    return { success: true };
+  } catch (err) {
+    console.error("[sendVerificationForNewUser] Failed", {
+      userId: params.userId,
+      error: err,
+    });
+    return { success: false, error: "errors.verification.sendFailed" };
   }
 }

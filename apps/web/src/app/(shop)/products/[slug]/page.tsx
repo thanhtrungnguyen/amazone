@@ -8,6 +8,7 @@ import { Truck, Shield, RotateCcw } from "lucide-react";
 import { RatingStars } from "@amazone/shared-ui";
 import { formatPrice } from "@amazone/shared-utils";
 import { AddToCartButton } from "./add-to-cart-button";
+import { VariantSelector } from "./variant-selector";
 import { AddToCompareButton } from "@/components/add-to-compare-button";
 import { ProductImageGallery } from "./product-image-gallery";
 import { ProductReviews } from "./product-reviews";
@@ -118,6 +119,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const productJsonLd = buildProductJsonLd(product);
 
+  // Fetch variant data
+  const { getProductVariants } = await import("@amazone/products");
+  const variantsData = await getProductVariants(product.id);
+  const hasVariants =
+    variantsData.options.length > 0 && variantsData.variants.length > 0;
+
   const category = (product as Record<string, unknown>).category as
     | { name: string; slug: string }
     | null
@@ -167,8 +174,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
             />
           </div>
 
-          {/* Price */}
+          {/* Price (shown as base price when no variants, or as "From" when variants exist) */}
           <div className="flex items-baseline gap-3">
+            {hasVariants && (
+              <span className="text-sm text-muted-foreground">From</span>
+            )}
             <span className="text-3xl font-bold">
               {formatPrice(product.price)}
             </span>
@@ -186,33 +196,57 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
           <Separator />
 
-          {/* Stock */}
-          <div className="text-sm">
-            {product.stock > 0 ? (
-              <span className="text-green-600">
-                In Stock ({product.stock} available)
-              </span>
-            ) : (
-              <span className="text-red-600">Out of Stock</span>
-            )}
-          </div>
-
-          {/* Add to Cart + Compare */}
-          <div className="flex items-start gap-2">
-            <div className="flex-1">
-              <AddToCartButton product={product} />
+          {/* Stock (only shown for non-variant products) */}
+          {!hasVariants && (
+            <div className="text-sm">
+              {product.stock > 0 ? (
+                <span className="text-green-600">
+                  In Stock ({product.stock} available)
+                </span>
+              ) : (
+                <span className="text-red-600">Out of Stock</span>
+              )}
             </div>
-            <AddToCompareButton
-              product={{
-                id: product.id,
-                name: product.name,
-                slug: product.slug,
-                price: product.price,
-                image: product.images?.[0] ?? null,
-              }}
-              className="mt-[42px]"
-            />
-          </div>
+          )}
+
+          {/* Variant Selector or Add to Cart */}
+          {hasVariants ? (
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <VariantSelector
+                  product={product}
+                  options={variantsData.options}
+                  variants={variantsData.variants}
+                />
+              </div>
+              <AddToCompareButton
+                product={{
+                  id: product.id,
+                  name: product.name,
+                  slug: product.slug,
+                  price: product.price,
+                  image: product.images?.[0] ?? null,
+                }}
+                className="mt-[42px]"
+              />
+            </div>
+          ) : (
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <AddToCartButton product={product} />
+              </div>
+              <AddToCompareButton
+                product={{
+                  id: product.id,
+                  name: product.name,
+                  slug: product.slug,
+                  price: product.price,
+                  image: product.images?.[0] ?? null,
+                }}
+                className="mt-[42px]"
+              />
+            </div>
+          )}
 
           <Separator />
 

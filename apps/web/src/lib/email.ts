@@ -121,6 +121,54 @@ export async function sendWelcomeEmail(params: {
   });
 }
 
+// ─── Email Verification ──────────────────────────────────────────
+
+export async function sendVerificationEmail(params: {
+  to: string;
+  name: string;
+  token: string;
+}): Promise<void> {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const verifyUrl = `${siteUrl}/verify-email?token=${encodeURIComponent(params.token)}`;
+
+  await getTransport().sendMail({
+    from: FROM,
+    to: params.to,
+    subject: "Verify your email address — Amazone",
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#333">
+        <div style="background:#0f172a;padding:24px;border-radius:8px 8px 0 0;text-align:center">
+          <h1 style="color:#fff;margin:0;font-size:24px">Amazone</h1>
+        </div>
+        <div style="border:1px solid #e2e8f0;border-top:none;padding:32px;border-radius:0 0 8px 8px">
+          <h2 style="margin:0 0 16px;font-size:20px;color:#111">Verify your email address</h2>
+          <p style="font-size:16px;line-height:1.5">Hi ${params.name},</p>
+          <p style="font-size:16px;line-height:1.5">
+            Thanks for creating your Amazone account. Please verify your email address
+            by clicking the button below.
+          </p>
+          <div style="text-align:center;margin:32px 0">
+            <a href="${verifyUrl}"
+               style="display:inline-block;padding:14px 32px;background:#0f172a;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:16px">
+              Verify Email
+            </a>
+          </div>
+          <p style="font-size:14px;color:#64748b;line-height:1.5">
+            This link will expire in 24 hours. If you did not create an account,
+            you can safely ignore this email.
+          </p>
+          <p style="font-size:14px;color:#64748b;line-height:1.5">
+            If the button above does not work, copy and paste this URL into your browser:
+          </p>
+          <p style="font-size:13px;color:#3b82f6;word-break:break-all">${verifyUrl}</p>
+          <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
+          <p style="color:#94a3b8;font-size:12px;margin:0">Amazone — Your one-stop shop</p>
+        </div>
+      </div>
+    `,
+  });
+}
+
 // ─── Order Cancellation ───────────────────────────────────────────
 
 export async function sendOrderCancellationEmail(params: {

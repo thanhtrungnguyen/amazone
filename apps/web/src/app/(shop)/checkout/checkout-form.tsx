@@ -44,10 +44,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useCartStore } from "@/stores/cart-store";
 import { formatPrice } from "@amazone/shared-utils";
 import { EmptyState } from "@amazone/shared-ui";
-import { submitCheckout, validateCouponCode } from "./actions";
+import type { Address } from "@amazone/users";
+import { submitCheckout, validateCouponCode, saveCheckoutAddress } from "./actions";
+import { AddressSelector } from "./address-selector";
 import type { ApplyCouponResult } from "@amazone/checkout";
 
 // ─── Constants ──────────────────────────────────────────
@@ -523,11 +526,17 @@ function ShippingStep({
   errors,
   control,
   isSubmitting,
+  onSelectSavedAddress,
+  saveAddress,
+  onSaveAddressChange,
 }: {
   register: UseFormRegister<ShippingFormData>;
   errors: FieldErrors<ShippingFormData>;
   control: Control<ShippingFormData>;
   isSubmitting: boolean;
+  onSelectSavedAddress: (address: Address) => void;
+  saveAddress: boolean;
+  onSaveAddressChange: (checked: boolean) => void;
 }): React.ReactElement {
   return (
     <Card>
@@ -541,6 +550,10 @@ function ShippingStep({
         </p>
       </CardHeader>
       <CardContent>
+        <AddressSelector
+          onSelect={onSelectSavedAddress}
+          disabled={isSubmitting}
+        />
         <div className="grid gap-4">
           {/* Full Name */}
           <div className="flex flex-col gap-1.5">
@@ -734,6 +747,24 @@ function ShippingStep({
               )}
             </div>
           </div>
+
+          {/* Save this address checkbox */}
+          <div className="flex items-center gap-2 pt-2">
+            <Checkbox
+              id="save-address-checkbox"
+              checked={saveAddress}
+              onCheckedChange={(checked) =>
+                onSaveAddressChange(checked === true)
+              }
+              disabled={isSubmitting}
+            />
+            <label
+              htmlFor="save-address-checkbox"
+              className="cursor-pointer text-sm"
+            >
+              Save this address for future orders
+            </label>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -856,6 +887,7 @@ export function CheckoutForm(): React.ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState<StepId>("shipping");
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [saveAddress, setSaveAddress] = useState(false);
 
   const form = useForm<ShippingFormData>({
     resolver: zodResolver(shippingSchema),
@@ -874,9 +906,24 @@ export function CheckoutForm(): React.ReactElement {
     register,
     control,
     getValues,
+    setValue,
     trigger,
     formState: { errors },
   } = form;
+
+  const handleSelectSavedAddress = useCallback(
+    (address: Address) => {
+      setValue("shippingName", address.fullName);
+      setValue("shippingAddress", address.streetAddress);
+      setValue("shippingCity", address.city);
+      setValue("shippingState", address.state ?? "");
+      setValue("shippingCountry", address.country);
+      setValue("shippingZip", address.zipCode);
+      // No need to save an address that's already saved
+      setSaveAddress(false);
+    },
+    [setValue]
+  );
 
   const goToStep = useCallback((step: StepId) => {
     setCurrentStep(step);
@@ -908,6 +955,21 @@ export function CheckoutForm(): React.ReactElement {
         ...(appliedCoupon ? { couponCode: appliedCoupon.code } : {}),
       };
 
+      // Save address if checkbox was checked (fire and forget -- don't block checkout)
+      if (saveAddress) {
+        void saveCheckoutAddress({
+          label: "Home",
+          fullName: data.shippingName,
+          streetAddress: data.shippingAddress,
+          city: data.shippingCity,
+          state: data.shippingState || null,
+          zipCode: data.shippingZip,
+          country: data.shippingCountry,
+          phone: null,
+          isDefault: false,
+        });
+      }
+
       const response = await submitCheckout(payload);
 
       if (!response.success) {
@@ -928,7 +990,7 @@ export function CheckoutForm(): React.ReactElement {
     } finally {
       setIsSubmitting(false);
     }
-  }, [trigger, getValues, clearCart, goToStep, appliedCoupon]);
+  }, [trigger, getValues, clearCart, goToStep, appliedCoupon, saveAddress]);
 
   if (items.length === 0) {
     return (
@@ -974,6 +1036,9 @@ export function CheckoutForm(): React.ReactElement {
               errors={errors}
               control={control}
               isSubmitting={isSubmitting}
+              onSelectSavedAddress={handleSelectSavedAddress}
+              saveAddress={saveAddress}
+              onSaveAddressChange={setSaveAddress}
             />
           )}
 

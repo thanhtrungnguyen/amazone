@@ -26,6 +26,7 @@ type ActionResponse<T> = ActionResult<T> | ActionError;
 export async function syncAddToCart(input: {
   productId: string;
   quantity: number;
+  variantId?: string;
 }): Promise<ActionResponse<{ id: string }>> {
   try {
     const session = await auth();

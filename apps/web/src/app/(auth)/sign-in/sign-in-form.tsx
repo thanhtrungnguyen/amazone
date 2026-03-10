@@ -10,6 +10,7 @@ import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
+import { checkEmailVerificationStatus } from "./actions";
 
 const signInSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -33,6 +34,17 @@ export function SignInForm(): React.ReactElement {
 
   async function onSubmit(data: SignInData) {
     setError(null);
+
+    // Check if the user needs to verify their email first
+    const { needsVerification } = await checkEmailVerificationStatus(
+      data.email
+    );
+    if (needsVerification) {
+      router.push(
+        `/verify-email/pending?email=${encodeURIComponent(data.email)}`
+      );
+      return;
+    }
 
     const result = await signIn("credentials", {
       email: data.email,

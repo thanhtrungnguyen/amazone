@@ -16,12 +16,18 @@ export async function addToCart(
 ): Promise<typeof cartItems.$inferSelect> {
   const validated = addToCartSchema.parse(input);
 
-  // Check if item already exists in cart
+  // Check if item already exists in cart (match by product + variant)
+  const conditions = [
+    eq(cartItems.userId, userId),
+    eq(cartItems.productId, validated.productId),
+  ];
+
+  if (validated.variantId) {
+    conditions.push(eq(cartItems.variantId, validated.variantId));
+  }
+
   const existing = await db.query.cartItems.findFirst({
-    where: and(
-      eq(cartItems.userId, userId),
-      eq(cartItems.productId, validated.productId)
-    ),
+    where: and(...conditions),
   });
 
   if (existing) {
@@ -41,6 +47,7 @@ export async function addToCart(
     .values({
       userId,
       productId: validated.productId,
+      variantId: validated.variantId ?? null,
       quantity: validated.quantity,
     })
     .returning();
@@ -93,20 +100,30 @@ export async function getCart(userId: string): Promise<CartSummary> {
           stock: true,
         },
       },
+      variant: {
+        columns: {
+          id: true,
+          sku: true,
+          priceInCents: true,
+          stock: true,
+        },
+      },
     },
   });
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalInCents = items.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
-    0
-  );
+  const totalInCents = items.reduce((sum, item) => {
+    const price = item.variant?.priceInCents ?? item.product.price;
+    return sum + price * item.quantity;
+  }, 0);
 
   return {
     items: items.map((item) => ({
       id: item.id,
       quantity: item.quantity,
+      variantId: item.variantId,
       product: item.product,
+      variant: item.variant ?? null,
     })),
     totalItems,
     totalInCents,

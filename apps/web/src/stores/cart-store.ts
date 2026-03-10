@@ -13,6 +13,7 @@ import {
 export interface CartItem {
   id: string;
   productId: string;
+  variantId?: string | null;
   name: string;
   price: number;
   image?: string | null;
@@ -48,8 +49,9 @@ function toCartItem(dbItem: CartItemWithProduct): CartItem {
   return {
     id: dbItem.id,
     productId: dbItem.product.id,
+    variantId: dbItem.variantId ?? null,
     name: dbItem.product.name,
-    price: dbItem.product.price,
+    price: dbItem.variant?.priceInCents ?? dbItem.product.price,
     image: dbItem.product.images?.[0] ?? null,
     quantity: dbItem.quantity,
   };
@@ -94,13 +96,20 @@ export const useCartStore = create<CartStore>((set, get) => ({
 
     // --- Optimistic update ---
     const prevItems = get().items;
-    const existing = prevItems.find((i) => i.productId === item.productId);
+    const existing = prevItems.find(
+      (i) =>
+        i.productId === item.productId &&
+        (i.variantId ?? null) === (item.variantId ?? null)
+    );
 
     if (existing) {
       const newQuantity = Math.min(existing.quantity + clampedQuantity, 99);
       set({
         items: prevItems.map((i) =>
-          i.productId === item.productId ? { ...i, quantity: newQuantity } : i
+          i.productId === item.productId &&
+          (i.variantId ?? null) === (item.variantId ?? null)
+            ? { ...i, quantity: newQuantity }
+            : i
         ),
       });
     } else {
@@ -112,7 +121,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
     // --- Background sync ---
     if (get().isHydrated) {
       set({ isSyncing: true });
-      syncAddToCart({ productId: item.productId, quantity: clampedQuantity })
+      syncAddToCart({
+        productId: item.productId,
+        quantity: clampedQuantity,
+        variantId: item.variantId ?? undefined,
+      })
         .then((result) => {
           if (result.success) {
             // Replace the temporary client-generated ID with the real DB ID
@@ -120,7 +133,9 @@ export const useCartStore = create<CartStore>((set, get) => ({
             if (!existing) {
               set((state) => ({
                 items: state.items.map((i) =>
-                  i.productId === item.productId && i.id === item.id
+                  i.productId === item.productId &&
+                  (i.variantId ?? null) === (item.variantId ?? null) &&
+                  i.id === item.id
                     ? { ...i, id: result.data.id }
                     : i
                 ),
