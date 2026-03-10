@@ -10,8 +10,8 @@
     "./schema": "./src/schema.ts"
   },
   "scripts": {
-    "seed": "tsx src/seed.ts",
-    "db:seed": "tsx src/seed.ts"
+    "seed": "tsx --tsconfig tsconfig.seed.json src/seed.ts",
+    "db:seed": "tsx --tsconfig tsconfig.seed.json src/seed.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.0",

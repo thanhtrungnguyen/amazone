@@ -1,13 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(taskkill //F //PID 14868)",
-      "Bash(tasklist //FI \"IMAGENAME eq node.exe\" //FO CSV)",
-      "Bash(lsof -ti:3000)",
-      "Bash(xargs kill -9)",
-      "Bash(AUTH_SECRET=dev-secret-local pnpm nx build web)",
-      "Bash(xargs -I {} bash -c 'echo \"\"=== {} ===\"\" && head -20 \"\"{}\"\"')",
-      "Bash(ls -la apps/web/src/app/profile/layout.tsx apps/web/src/app/profile/page.tsx apps/web/src/app/profile/orders/page.tsx apps/web/src/app/profile/reviews/page.tsx apps/web/src/app/profile/settings/page.tsx apps/web/src/components/breadcrumbs.tsx apps/web/src/stores/compare-store.ts apps/web/src/components/compare-bar.tsx apps/web/src/app/\\\\\\(shop\\\\\\)/compare/page.tsx)"
+      "Bash(git *)"
     ]
   }
 }
