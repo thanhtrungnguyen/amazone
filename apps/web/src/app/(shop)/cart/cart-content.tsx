@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Loader2, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Bookmark, Loader2, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -11,10 +12,13 @@ import { formatPrice } from "@amazone/shared-utils";
 import { useCartStore } from "@/stores/cart-store";
 import type { CartItem } from "@/stores/cart-store";
 import { toast } from "sonner";
+import { syncMoveToSavedForLater } from "./saved-for-later-actions";
+import { SavedForLaterSection } from "./saved-for-later-section";
 
 function CartItemRow({ item }: { item: CartItem }): React.ReactElement {
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const [isSaving, setSaving] = useState(false);
 
   const handleRemove = (): void => {
     removeItem(item.id);
@@ -32,6 +36,19 @@ function CartItemRow({ item }: { item: CartItem }): React.ReactElement {
   const handleIncrement = (): void => {
     if (item.quantity >= 99) return;
     updateQuantity(item.id, item.quantity + 1);
+  };
+
+  const handleSaveForLater = async (): Promise<void> => {
+    setSaving(true);
+    // Optimistic: remove from cart UI immediately
+    removeItem(item.id);
+    const result = await syncMoveToSavedForLater(item.id);
+    if (result.success) {
+      toast.success(`"${item.name}" saved for later`);
+    } else {
+      toast.error("Failed to save item for later");
+    }
+    setSaving(false);
   };
 
   return (
@@ -103,6 +120,19 @@ function CartItemRow({ item }: { item: CartItem }): React.ReactElement {
           <span className="ml-3 text-sm text-muted-foreground">
             {formatPrice(item.price * item.quantity)}
           </span>
+          <button
+            type="button"
+            className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-primary disabled:opacity-50"
+            onClick={handleSaveForLater}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Bookmark className="h-3 w-3" />
+            )}
+            Save for Later
+          </button>
         </div>
       </div>
     </div>
@@ -118,16 +148,19 @@ export function CartContent(): React.ReactElement {
 
   if (items.length === 0) {
     return (
-      <EmptyState
-        icon={<ShoppingCart className="h-6 w-6" />}
-        title="Your cart is empty"
-        description="Looks like you have not added anything to your cart yet. Browse our products and find something you love."
-        action={
-          <Button asChild>
-            <Link href="/products">Browse Products</Link>
-          </Button>
-        }
-      />
+      <div>
+        <EmptyState
+          icon={<ShoppingCart className="h-6 w-6" />}
+          title="Your cart is empty"
+          description="Looks like you have not added anything to your cart yet. Browse our products and find something you love."
+          action={
+            <Button asChild>
+              <Link href="/products">Browse Products</Link>
+            </Button>
+          }
+        />
+        <SavedForLaterSection />
+      </div>
     );
   }
 
@@ -167,6 +200,8 @@ export function CartContent(): React.ReactElement {
             <Link href="/products">Continue Shopping</Link>
           </Button>
         </div>
+
+        <SavedForLaterSection />
       </div>
 
       {/* Order Summary */}

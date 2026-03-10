@@ -57,7 +57,7 @@ function randomInt(min: number, max: number): number {
 // Pre-computed bcrypt hash for "password123" (cost 10).
 // Using a constant avoids importing bcryptjs as a dependency of @amazone/db.
 const BCRYPT_HASH_PASSWORD123 =
-  "$2b$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0lSsvqNu9mu";
+  "$2b$10$hfDlhUvT5X2.wUbDyT6lduecisHr/0JBv3aPy0lyh7MJqv186s/Lq";
 
 // ---------------------------------------------------------------------------
 // 1. Categories

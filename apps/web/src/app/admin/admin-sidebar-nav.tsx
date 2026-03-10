@@ -13,18 +13,45 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type BadgeVariant = "amber" | "neutral";
+
+interface NavLink {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge: number | null;
+  badgeVariant?: BadgeVariant;
+  badgeAriaLabel?: string;
+}
+
 interface AdminSidebarNavProps {
   pendingReturnsCount: number;
+  totalUserCount: number;
 }
+
+const badgeStyles: Record<BadgeVariant, string> = {
+  amber:
+    "bg-amber-400 px-1.5 text-xs font-semibold text-amber-900",
+  neutral:
+    "bg-gray-600 px-1.5 text-xs font-semibold text-gray-200",
+};
 
 export function AdminSidebarNav({
   pendingReturnsCount,
+  totalUserCount,
 }: AdminSidebarNavProps): React.ReactElement {
   const pathname = usePathname();
 
-  const adminLinks = [
+  const adminLinks: NavLink[] = [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard, badge: null },
-    { href: "/admin/users", label: "Users", icon: Users, badge: null },
+    {
+      href: "/admin/users",
+      label: "Users",
+      icon: Users,
+      badge: totalUserCount > 0 ? totalUserCount : null,
+      badgeVariant: "neutral",
+      badgeAriaLabel: `${totalUserCount} total users`,
+    },
     { href: "/admin/products", label: "Products", icon: Package, badge: null },
     {
       href: "/admin/categories",
@@ -43,6 +70,8 @@ export function AdminSidebarNav({
       label: "Returns",
       icon: RotateCcw,
       badge: pendingReturnsCount > 0 ? pendingReturnsCount : null,
+      badgeVariant: "amber",
+      badgeAriaLabel: `${pendingReturnsCount} pending`,
     },
     {
       href: "/admin/coupons",
@@ -50,7 +79,7 @@ export function AdminSidebarNav({
       icon: Tag,
       badge: null,
     },
-  ] as const;
+  ];
 
   return (
     <nav className="flex flex-col gap-1 p-3" aria-label="Admin navigation">
@@ -59,6 +88,8 @@ export function AdminSidebarNav({
           link.href === "/admin"
             ? pathname === "/admin"
             : pathname.startsWith(link.href);
+
+        const variant = link.badgeVariant ?? "amber";
 
         return (
           <Link
@@ -76,8 +107,11 @@ export function AdminSidebarNav({
             <span className="flex-1">{link.label}</span>
             {link.badge !== null && (
               <span
-                className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-400 px-1.5 text-xs font-semibold text-amber-900"
-                aria-label={`${link.badge} pending`}
+                className={cn(
+                  "ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full",
+                  badgeStyles[variant]
+                )}
+                aria-label={link.badgeAriaLabel ?? `${link.badge}`}
               >
                 {link.badge}
               </span>

@@ -22,10 +22,6 @@ export {
 
 export { logger, createLogger } from "./logger";
 
-export { getRedis } from "./redis";
-export { cached, invalidateCache } from "./cache";
-export {
-  createRateLimiter,
-  type RateLimitResult,
-  type RateLimitConfig,
-} from "./rate-limit";
+// Redis, cache, and rate-limit are server-only.
+// Import from "@amazone/shared-utils/server" to avoid bundling ioredis
+// into client component graphs.

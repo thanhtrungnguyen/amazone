@@ -71,6 +71,48 @@
       "when": 1741996800000,
       "tag": "0009_product_variants",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1742083200000,
+      "tag": "0010_user_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1742169600000,
+      "tag": "0015_order_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1742256000000,
+      "tag": "0010_wishlist_sharing",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1742342400000,
+      "tag": "0011_price_alerts",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1742428800000,
+      "tag": "0013_saved_for_later",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1742515200000,
+      "tag": "0014_product_bundles",
+      "breakpoints": true
     }
   ]
 }

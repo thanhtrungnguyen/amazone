@@ -110,7 +110,7 @@ function createRedisLimiter(
 
   return {
     async check(identifier: string): Promise<RateLimitResult> {
-      const redis = getRedis();
+      const redis = await getRedis();
 
       if (!redis) {
         return memoryFallback.check(identifier);

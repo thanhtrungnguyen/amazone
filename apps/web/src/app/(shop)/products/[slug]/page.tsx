@@ -15,6 +15,7 @@ import { ProductReviews } from "./product-reviews";
 import { ProductQA } from "./product-qa-list";
 import { RelatedProducts } from "./related-products";
 import { FrequentlyBoughtTogether } from "./frequently-bought-together";
+import { ProductBundles } from "./product-bundles";
 import { TrackProductView } from "@/components/track-product-view";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import type { BreadcrumbItem } from "@/components/breadcrumbs";
@@ -332,6 +333,22 @@ export default async function ProductPage({ params }: ProductPageProps) {
         }
       >
         <FrequentlyBoughtTogether productId={product.id} />
+      </Suspense>
+
+      {/* Product Bundles */}
+      <Suspense
+        fallback={
+          <div className="mt-12">
+            <Skeleton className="mb-6 h-8 w-64" />
+            <div className="grid gap-6 md:grid-cols-2">
+              {Array.from({ length: 2 }, (_, i) => (
+                <Skeleton key={i} className="h-64 w-full rounded-lg" />
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <ProductBundles productId={product.id} />
       </Suspense>
 
       {/* Related Products */}

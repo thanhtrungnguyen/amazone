@@ -17,6 +17,4 @@ storage:
       path: /tmp/tempo/wal
 
 overrides:
-  defaults:
-    global:
-      max_traces_per_user: 0
+  max_traces_per_user: 0

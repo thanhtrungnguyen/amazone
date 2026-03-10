@@ -36,6 +36,7 @@ interface CartStore {
   clear: () => void;
 
   hydrate: () => Promise<void>;
+  refresh: () => Promise<void>;
 
   totalItems: () => number;
   totalPrice: () => number;
@@ -85,6 +86,20 @@ export const useCartStore = create<CartStore>((set, get) => ({
       }
     } catch {
       set({ isHydrated: true });
+    } finally {
+      set({ isSyncing: false });
+    }
+  },
+
+  refresh: async () => {
+    set({ isSyncing: true });
+    try {
+      const result = await syncGetCart();
+      if (result.success) {
+        set({ items: result.data.items.map(toCartItem) });
+      }
+    } catch {
+      // Silently fail — existing state remains
     } finally {
       set({ isSyncing: false });
     }

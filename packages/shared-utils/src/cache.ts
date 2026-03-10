@@ -16,7 +16,7 @@ export async function cached<T>(
   options: CacheOptions = {}
 ): Promise<T> {
   const { ttl = 60 } = options;
-  const redis = getRedis();
+  const redis = await getRedis();
 
   if (!redis) return fn();
 
@@ -43,7 +43,7 @@ export async function cached<T>(
  * (use sparingly — for targeted invalidation only).
  */
 export async function invalidateCache(...patterns: string[]): Promise<void> {
-  const redis = getRedis();
+  const redis = await getRedis();
   if (!redis) return;
 
   try {

@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,12 +31,7 @@ import {
 
 import { TrendingProducts } from "@/components/trending-products";
 import { PopularInCategory } from "@/components/popular-in-category";
-
-const RecentlyViewed = dynamic(
-  () =>
-    import("@/components/recently-viewed").then((mod) => mod.RecentlyViewed),
-  { ssr: false }
-);
+import { RecentlyViewedWrapper } from "@/components/recently-viewed-wrapper";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://amazone.com";
 
@@ -139,7 +133,7 @@ async function getCategories(): Promise<
   { name: string; slug: string; emoji: string; count: number }[]
 > {
   try {
-    const { cached } = await import("@amazone/shared-utils");
+    const { cached } = await import("@amazone/shared-utils/server");
     const { db, products } = await import("@amazone/db");
     const { eq, and, count: countFn } = await import("drizzle-orm");
 
@@ -284,7 +278,7 @@ export default async function HomePage() {
       </Suspense>
 
       {/* Recently Viewed */}
-      <RecentlyViewed />
+      <RecentlyViewedWrapper />
 
       <Separator />
 

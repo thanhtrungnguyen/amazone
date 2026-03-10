@@ -59,6 +59,9 @@ export interface OrderDetail {
   shippingState: string | null;
   shippingCountry: string;
   shippingZip: string;
+  shippingCarrier: string | null;
+  trackingNumber: string | null;
+  estimatedDelivery: Date | null;
   createdAt: Date;
   updatedAt: Date;
   items: OrderItemDetail[];
@@ -225,6 +228,9 @@ export async function getOrderDetail(
     shippingState: order.shippingState ?? null,
     shippingCountry: order.shippingCountry,
     shippingZip: order.shippingZip,
+    shippingCarrier: order.shippingCarrier ?? null,
+    trackingNumber: order.trackingNumber ?? null,
+    estimatedDelivery: order.estimatedDelivery ?? null,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     items,

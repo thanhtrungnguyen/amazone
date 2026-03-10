@@ -27,6 +27,7 @@ const nextConfig: NextConfig = {
     "@opentelemetry/exporter-logs-otlp-http",
     "@opentelemetry/sdk-logs",
     "@opentelemetry/resources",
+    "ioredis",
   ],
 };
 

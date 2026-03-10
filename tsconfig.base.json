@@ -22,7 +22,8 @@
       "@amazone/users": ["packages/users/src/index.ts"],
       "@amazone/reviews": ["packages/reviews/src/index.ts"],
       "@amazone/shared-ui": ["packages/shared-ui/src/index.ts"],
-      "@amazone/shared-utils": ["packages/shared-utils/src/index.ts"]
+      "@amazone/shared-utils": ["packages/shared-utils/src/index.ts"],
+      "@amazone/shared-utils/server": ["packages/shared-utils/src/server.ts"]
     }
   }
 }

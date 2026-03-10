@@ -263,6 +263,23 @@ export default async function OrderDetailPage({
 
   const isReturnable = order.status === "delivered";
 
+  const isTrackable =
+    order.status !== "cancelled" && order.status !== "refunded";
+
+  // Mini progress bar calculation (0-100%)
+  const MINI_PROGRESS: Record<string, number> = {
+    pending: 10,
+    confirmed: 25,
+    processing: 45,
+    shipped: 70,
+    out_for_delivery: 85,
+    delivered: 100,
+    cancelled: 0,
+    refunded: 0,
+    return_requested: 100,
+  };
+  const progressPercent = MINI_PROGRESS[order.status] ?? 0;
+
   return (
     <div>
       <Breadcrumbs
@@ -304,24 +321,62 @@ export default async function OrderDetailPage({
           </p>
 
           {/* Customer action buttons */}
-          {(isCancellable || isReturnable) && (
-            <div className="flex flex-wrap gap-2">
-              {isCancellable && (
-                <CancelOrderButton
-                  orderId={order.id}
-                  userId={session.user.id}
-                />
-              )}
-              {isReturnable && (
-                <RequestReturnButton
-                  orderId={order.id}
-                  userId={session.user.id}
-                />
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {isTrackable && (
+              <Button size="sm" className="gap-2" asChild>
+                <Link href={`/profile/orders/${order.id}/tracking`}>
+                  <Truck className="h-4 w-4" />
+                  Track Order
+                </Link>
+              </Button>
+            )}
+            {isCancellable && (
+              <CancelOrderButton
+                orderId={order.id}
+                userId={session.user.id}
+              />
+            )}
+            {isReturnable && (
+              <RequestReturnButton
+                orderId={order.id}
+                userId={session.user.id}
+              />
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Mini progress bar */}
+      {progressPercent > 0 && (
+        <div className="mb-6 overflow-hidden rounded-lg border bg-card p-4">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="font-medium text-foreground">
+              Order Progress
+            </span>
+            <Link
+              href={`/profile/orders/${order.id}/tracking`}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              View full tracking
+            </Link>
+          </div>
+          <div
+            className="h-2 w-full overflow-hidden rounded-full bg-gray-100"
+            role="progressbar"
+            aria-valuenow={progressPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`Order progress: ${progressPercent}%`}
+          >
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${
+                progressPercent === 100 ? "bg-green-500" : "bg-blue-500"
+              }`}
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Status timeline */}
       <Card className="mb-6">

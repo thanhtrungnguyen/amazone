@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createRateLimiter,
   type RateLimitResult,
-} from "@amazone/shared-utils";
+} from "@amazone/shared-utils/server";
 
 // ---------------------------------------------------------------------------
 // Pre-configured limiters

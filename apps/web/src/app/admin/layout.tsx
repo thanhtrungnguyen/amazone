@@ -17,12 +17,30 @@ async function getPendingReturnsCount(): Promise<number> {
   }
 }
 
+async function getTotalUserCount(): Promise<number> {
+  try {
+    const { db, users } = await import("@amazone/db");
+    const { sql } = await import("drizzle-orm");
+
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users);
+
+    return row?.count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }): Promise<React.ReactElement> {
-  const pendingReturnsCount = await getPendingReturnsCount();
+  const [pendingReturnsCount, totalUserCount] = await Promise.all([
+    getPendingReturnsCount(),
+    getTotalUserCount(),
+  ]);
 
   return (
     <div className="flex min-h-screen">
@@ -33,7 +51,10 @@ export default async function AdminLayout({
             Admin Panel
           </Link>
         </div>
-        <AdminSidebarNav pendingReturnsCount={pendingReturnsCount} />
+        <AdminSidebarNav
+          pendingReturnsCount={pendingReturnsCount}
+          totalUserCount={totalUserCount}
+        />
       </aside>
 
       {/* Content */}

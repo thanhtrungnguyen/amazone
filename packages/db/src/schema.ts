@@ -55,6 +55,7 @@ export const users = pgTable("users", {
   image: text("image"),
   hashedPassword: text("hashed_password"),
   role: userRoleEnum("role").default("customer").notNull(),
+  isBanned: boolean("is_banned").default(false).notNull(),
   verificationToken: varchar("verification_token", { length: 255 }),
   verificationTokenExpiry: timestamp("verification_token_expiry", {
     mode: "date",
@@ -158,6 +159,8 @@ export const wishlists = pgTable(
     productId: uuid("product_id")
       .references(() => products.id, { onDelete: "cascade" })
       .notNull(),
+    isPublic: boolean("is_public").default(false).notNull(),
+    shareToken: varchar("share_token", { length: 64 }).unique(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
@@ -165,6 +168,32 @@ export const wishlists = pgTable(
       table.userId,
       table.productId
     ),
+    index("wishlists_share_token_idx").on(table.shareToken),
+  ]
+);
+
+// ─── Price Alerts ──────────────────────────────────────
+
+export const priceAlerts = pgTable(
+  "price_alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    productId: uuid("product_id")
+      .references(() => products.id, { onDelete: "cascade" })
+      .notNull(),
+    targetPrice: integer("target_price").notNull(), // in cents
+    isActive: boolean("is_active").default(true).notNull(),
+    triggeredAt: timestamp("triggered_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("price_alerts_user_idx").on(table.userId),
+    index("price_alerts_product_idx").on(table.productId),
+    index("price_alerts_active_product_idx").on(table.isActive, table.productId),
+    uniqueIndex("price_alerts_user_product_idx").on(table.userId, table.productId),
   ]
 );
 
@@ -189,6 +218,9 @@ export const orders = pgTable(
       length: 255,
     }),
     stripeSessionId: varchar("stripe_session_id", { length: 255 }),
+    shippingCarrier: varchar("shipping_carrier", { length: 100 }),
+    trackingNumber: varchar("tracking_number", { length: 200 }),
+    estimatedDelivery: timestamp("estimated_delivery", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -504,6 +536,76 @@ export const productVariantCombinations = pgTable(
   ]
 );
 
+// ─── Saved for Later ────────────────────────────────────
+
+export const savedForLater = pgTable(
+  "saved_for_later",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    productId: uuid("product_id")
+      .references(() => products.id, { onDelete: "cascade" })
+      .notNull(),
+    variantId: uuid("variant_id").references(
+      () => productVariantCombinations.id,
+      { onDelete: "set null" }
+    ),
+    quantity: integer("quantity").default(1).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("saved_for_later_user_product_variant_idx").on(
+      table.userId,
+      table.productId,
+      table.variantId
+    ),
+    index("saved_for_later_user_idx").on(table.userId),
+  ]
+);
+
+// ─── Product Bundles ────────────────────────────────────
+
+export const productBundles = pgTable(
+  "product_bundles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 200 }).notNull(),
+    slug: varchar("slug", { length: 200 }).notNull().unique(),
+    description: text("description"),
+    discountPercent: integer("discount_percent").default(0).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("product_bundles_active_idx").on(table.isActive),
+    check(
+      "product_bundles_discount_range",
+      sql`${table.discountPercent} >= 0 AND ${table.discountPercent} <= 50`
+    ),
+  ]
+);
+
+export const productBundleItems = pgTable(
+  "product_bundle_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bundleId: uuid("bundle_id")
+      .references(() => productBundles.id, { onDelete: "cascade" })
+      .notNull(),
+    productId: uuid("product_id")
+      .references(() => products.id, { onDelete: "cascade" })
+      .notNull(),
+    quantity: integer("quantity").default(1).notNull(),
+  },
+  (table) => [
+    index("product_bundle_items_bundle_idx").on(table.bundleId),
+    index("product_bundle_items_product_idx").on(table.productId),
+  ]
+);
+
 // ─── Addresses ─────────────────────────────────────────
 
 export const addresses = pgTable(
@@ -544,6 +646,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   productAnswers: many(productAnswers),
   answerHelpfulVotes: many(answerHelpfulVotes),
   addresses: many(addresses),
+  savedForLater: many(savedForLater),
+  priceAlerts: many(priceAlerts),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
@@ -570,6 +674,20 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   questions: many(productQuestions),
   variantOptions: many(productVariantOptions),
   variants: many(productVariants),
+  savedForLater: many(savedForLater),
+  bundleItems: many(productBundleItems),
+  priceAlerts: many(priceAlerts),
+}));
+
+export const priceAlertsRelations = relations(priceAlerts, ({ one }) => ({
+  user: one(users, {
+    fields: [priceAlerts.userId],
+    references: [users.id],
+  }),
+  product: one(products, {
+    fields: [priceAlerts.productId],
+    references: [products.id],
+  }),
 }));
 
 export const cartItemsRelations = relations(cartItems, ({ one }) => ({
@@ -773,3 +891,39 @@ export const addressesRelations = relations(addresses, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+export const savedForLaterRelations = relations(savedForLater, ({ one }) => ({
+  user: one(users, {
+    fields: [savedForLater.userId],
+    references: [users.id],
+  }),
+  product: one(products, {
+    fields: [savedForLater.productId],
+    references: [products.id],
+  }),
+  variant: one(productVariantCombinations, {
+    fields: [savedForLater.variantId],
+    references: [productVariantCombinations.id],
+  }),
+}));
+
+export const productBundlesRelations = relations(
+  productBundles,
+  ({ many }) => ({
+    items: many(productBundleItems),
+  })
+);
+
+export const productBundleItemsRelations = relations(
+  productBundleItems,
+  ({ one }) => ({
+    bundle: one(productBundles, {
+      fields: [productBundleItems.bundleId],
+      references: [productBundles.id],
+    }),
+    product: one(products, {
+      fields: [productBundleItems.productId],
+      references: [products.id],
+    }),
+  })
+);
