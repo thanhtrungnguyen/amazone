@@ -20,9 +20,11 @@ import {
   ShoppingCart,
   DollarSign,
   TrendingUp,
+  CalendarDays,
 } from "lucide-react";
 import { formatPrice } from "@amazone/shared-utils";
 import { auth } from "@/lib/auth";
+import Link from "next/link";
 import LowStockAlert from "./low-stock-alert";
 import SendLowStockButton from "./send-low-stock-button";
 
@@ -60,6 +62,7 @@ interface DashboardData {
   stats: StatCard[];
   recentOrders: RecentOrder[];
   topProducts: TopProduct[];
+  thisMonthEarningsInCents: number;
 }
 
 async function getDashboardData(userId: string): Promise<DashboardData> {
@@ -81,6 +84,7 @@ async function getDashboardData(userId: string): Promise<DashboardData> {
         stats: defaultStats(),
         recentOrders: [],
         topProducts: [],
+        thisMonthEarningsInCents: 0,
       };
     }
 
@@ -184,12 +188,31 @@ async function getDashboardData(userId: string): Promise<DashboardData> {
       revenueInCents: Number(row.revenue ?? 0),
     }));
 
-    return { stats, recentOrders, topProducts };
+    // This month's earnings (confirmed + processing + shipped + delivered)
+    const now = new Date();
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const EARNED_STATUSES = ["confirmed", "processing", "shipped", "delivered"] as const;
+
+    const thisMonthResult = await db
+      .select({ total: sum(sql`${orderItems.priceInCents} * ${orderItems.quantity}`) })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(
+        and(
+          inArray(orderItems.productId, productIds),
+          inArray(orders.status, [...EARNED_STATUSES]),
+          sql`${orders.createdAt} >= ${startOfThisMonth}`,
+        )
+      );
+    const thisMonthEarningsInCents = Number(thisMonthResult[0]?.total ?? 0);
+
+    return { stats, recentOrders, topProducts, thisMonthEarningsInCents };
   } catch {
     return {
       stats: defaultStats(),
       recentOrders: [],
       topProducts: [],
+      thisMonthEarningsInCents: 0,
     };
   }
 }
@@ -232,7 +255,10 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
     redirect("/sign-in");
   }
 
-  const { stats, recentOrders, topProducts } = await getDashboardData(session.user.id);
+  const { stats, recentOrders, topProducts, thisMonthEarningsInCents } =
+    await getDashboardData(session.user.id);
+
+  const thisMonthLabel = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
 
   return (
     <div>
@@ -249,6 +275,24 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
 
       {/* Low-stock alert banner — renders nothing when all stock is healthy */}
       <LowStockAlert sellerId={session.user.id} />
+
+      {/* This Month Earnings highlight */}
+      <Link href="/dashboard/payouts" className="mb-6 block">
+        <Card className="border-primary/40 bg-primary/5 transition-colors hover:bg-primary/10">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">
+              Earnings This Month
+            </CardTitle>
+            <CalendarDays className="h-4 w-4 text-primary" aria-hidden="true" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-primary">
+              {formatPrice(thisMonthEarningsInCents)}
+            </div>
+            <CardDescription>{thisMonthLabel} &mdash; view full payout history &rarr;</CardDescription>
+          </CardContent>
+        </Card>
+      </Link>
 
       {/* Stats row */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

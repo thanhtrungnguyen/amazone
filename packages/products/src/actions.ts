@@ -215,6 +215,166 @@ export async function listProducts(
   });
 }
 
+// ─── Paginated product listing ────────────────────────────────────────────────
+
+export interface PaginatedProductItem {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  compareAtPrice: number | null;
+  images: string[] | null;
+  stock: number;
+  isActive: boolean;
+  isFeatured: boolean;
+  avgRating: number;
+  reviewCount: number;
+  categoryId: string | null;
+}
+
+export interface PaginatedProductsResult {
+  products: PaginatedProductItem[];
+  nextCursor: string | null;
+  total: number;
+}
+
+export interface PaginatedProductsInput {
+  cursor?: string;
+  limit?: number;
+  search?: string;
+  categoryId?: string;
+  sortBy?: "price_asc" | "price_desc" | "newest" | "rating" | "name" | "featured";
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
+  inStock?: boolean;
+  isActive?: boolean;
+}
+
+/**
+ * Fetch a page of products for cursor-based infinite scroll.
+ *
+ * - `cursor` is the last product ID from the previous page.
+ * - `limit` defaults to 24. The function fetches limit + 1 rows so it can
+ *   determine whether a next page exists without a separate COUNT query.
+ * - `total` is fetched in parallel with the product rows.
+ * - Returns `nextCursor: null` when the caller has reached the last page.
+ */
+export async function getProductsPaginated(
+  input: PaginatedProductsInput
+): Promise<PaginatedProductsResult> {
+  const {
+    cursor,
+    limit = 24,
+    search,
+    categoryId,
+    sortBy = "featured",
+    minPrice,
+    maxPrice,
+    minRating,
+    inStock,
+    isActive,
+  } = input;
+
+  const conditions: SQL[] = [];
+
+  if (categoryId) conditions.push(eq(products.categoryId, categoryId));
+  if (minPrice !== undefined) conditions.push(gte(products.price, minPrice));
+  if (maxPrice !== undefined) conditions.push(lte(products.price, maxPrice));
+  if (search) conditions.push(buildSearchCondition(search));
+  if (minRating !== undefined) conditions.push(gte(products.avgRating, minRating));
+  if (inStock === true) conditions.push(gt(products.stock, 0));
+  if (isActive !== undefined) conditions.push(eq(products.isActive, isActive));
+
+  // Cursor condition — direction depends on sort order.
+  // For ascending sorts we page forward with gt; for all others with lt.
+  if (cursor) {
+    if (sortBy === "price_asc") {
+      conditions.push(gt(products.id, cursor));
+    } else {
+      conditions.push(lt(products.id, cursor));
+    }
+  }
+
+  const orderBy = search
+    ? desc(buildSearchRank(search))
+    : ({
+        price_asc: asc(products.price),
+        price_desc: desc(products.price),
+        newest: desc(products.createdAt),
+        rating: desc(products.avgRating),
+        name: asc(products.name),
+        featured: desc(products.isFeatured),
+      }[sortBy] ?? desc(products.isFeatured));
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // Fetch limit+1 rows to detect whether a next page exists, and total count
+  // in parallel so we only need one round-trip to the DB.
+  const [rows, countResult] = await Promise.all([
+    db
+      .select({
+        id: products.id,
+        name: products.name,
+        slug: products.slug,
+        price: products.price,
+        compareAtPrice: products.compareAtPrice,
+        images: products.images,
+        stock: products.stock,
+        isActive: products.isActive,
+        isFeatured: products.isFeatured,
+        avgRating: products.avgRating,
+        reviewCount: products.reviewCount,
+        categoryId: products.categoryId,
+      })
+      .from(products)
+      .where(whereClause)
+      .orderBy(orderBy)
+      .limit(limit + 1),
+    db
+      .select({ count: count() })
+      .from(products)
+      .where(
+        // Total count uses the filter conditions only — no cursor.
+        (() => {
+          const countConditions: SQL[] = [];
+          if (categoryId) countConditions.push(eq(products.categoryId, categoryId));
+          if (minPrice !== undefined) countConditions.push(gte(products.price, minPrice));
+          if (maxPrice !== undefined) countConditions.push(lte(products.price, maxPrice));
+          if (search) countConditions.push(buildSearchCondition(search));
+          if (minRating !== undefined)
+            countConditions.push(gte(products.avgRating, minRating));
+          if (inStock === true) countConditions.push(gt(products.stock, 0));
+          if (isActive !== undefined) countConditions.push(eq(products.isActive, isActive));
+          return countConditions.length > 0 ? and(...countConditions) : undefined;
+        })()
+      ),
+  ]);
+
+  const hasNextPage = rows.length > limit;
+  const pageRows = hasNextPage ? rows.slice(0, limit) : rows;
+  const nextCursor = hasNextPage ? (pageRows[pageRows.length - 1]?.id ?? null) : null;
+
+  return {
+    products: pageRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      price: row.price,
+      compareAtPrice: row.compareAtPrice,
+      images: row.images as string[] | null,
+      stock: row.stock,
+      isActive: row.isActive,
+      isFeatured: row.isFeatured,
+      avgRating: row.avgRating,
+      reviewCount: row.reviewCount,
+      categoryId: row.categoryId,
+    })),
+    nextCursor,
+    total: countResult[0]?.count ?? 0,
+  };
+}
+
 export async function countProducts(
   input: Omit<ProductFilterInput, "cursor" | "limit" | "sortBy">
 ): Promise<number> {

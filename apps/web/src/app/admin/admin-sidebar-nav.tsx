@@ -8,19 +8,42 @@ import {
   Package,
   ShoppingCart,
   FolderTree,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const adminLinks = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/users", label: "Users", icon: Users },
-  { href: "/admin/products", label: "Products", icon: Package },
-  { href: "/admin/categories", label: "Categories", icon: FolderTree },
-  { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
-] as const;
+interface AdminSidebarNavProps {
+  pendingReturnsCount: number;
+}
 
-export function AdminSidebarNav(): React.ReactElement {
+export function AdminSidebarNav({
+  pendingReturnsCount,
+}: AdminSidebarNavProps): React.ReactElement {
   const pathname = usePathname();
+
+  const adminLinks = [
+    { href: "/admin", label: "Dashboard", icon: LayoutDashboard, badge: null },
+    { href: "/admin/users", label: "Users", icon: Users, badge: null },
+    { href: "/admin/products", label: "Products", icon: Package, badge: null },
+    {
+      href: "/admin/categories",
+      label: "Categories",
+      icon: FolderTree,
+      badge: null,
+    },
+    {
+      href: "/admin/orders",
+      label: "Orders",
+      icon: ShoppingCart,
+      badge: null,
+    },
+    {
+      href: "/admin/returns",
+      label: "Returns",
+      icon: RotateCcw,
+      badge: pendingReturnsCount > 0 ? pendingReturnsCount : null,
+    },
+  ] as const;
 
   return (
     <nav className="flex flex-col gap-1 p-3" aria-label="Admin navigation">
@@ -42,8 +65,16 @@ export function AdminSidebarNav(): React.ReactElement {
             )}
             aria-current={isActive ? "page" : undefined}
           >
-            <link.icon className="h-4 w-4" />
-            {link.label}
+            <link.icon className="h-4 w-4 shrink-0" />
+            <span className="flex-1">{link.label}</span>
+            {link.badge !== null && (
+              <span
+                className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-400 px-1.5 text-xs font-semibold text-amber-900"
+                aria-label={`${link.badge} pending`}
+              >
+                {link.badge}
+              </span>
+            )}
           </Link>
         );
       })}

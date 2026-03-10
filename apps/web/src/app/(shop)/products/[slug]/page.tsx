@@ -11,6 +11,7 @@ import { AddToCartButton } from "./add-to-cart-button";
 import { AddToCompareButton } from "@/components/add-to-compare-button";
 import { ProductImageGallery } from "./product-image-gallery";
 import { ProductReviews } from "./product-reviews";
+import { ProductQA } from "./product-qa-list";
 import { RelatedProducts } from "./related-products";
 import { TrackProductView } from "@/components/track-product-view";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -238,7 +239,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </div>
       </div>
 
-      {/* Tabs: Description & Reviews */}
+      {/* Tabs: Description, Reviews & Q&A */}
       <div className="mt-12">
         <Tabs defaultValue="description">
           <TabsList>
@@ -246,6 +247,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <TabsTrigger value="reviews">
               Reviews ({product.reviewCount})
             </TabsTrigger>
+            <TabsTrigger value="qa">Questions &amp; Answers</TabsTrigger>
           </TabsList>
           <TabsContent value="description" className="prose mt-4 max-w-none">
             <p className="leading-relaxed text-muted-foreground">
@@ -269,6 +271,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
             >
               <ProductReviews productId={product.id} />
             </Suspense>
+          </TabsContent>
+          <TabsContent value="qa" className="mt-4">
+            <ProductQA productId={product.id} sellerId={product.sellerId} />
           </TabsContent>
         </Tabs>
       </div>

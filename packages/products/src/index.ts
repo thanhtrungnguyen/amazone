@@ -14,6 +14,7 @@ export {
   getProductBySlug,
   listProducts,
   countProducts,
+  getProductsPaginated,
   deleteProduct,
   getRelatedProducts,
   getLowStockProducts,
@@ -23,4 +24,7 @@ export {
   type RelatedProduct,
   type LowStockProduct,
   type SendEmailFn,
+  type PaginatedProductItem,
+  type PaginatedProductsResult,
+  type PaginatedProductsInput,
 } from "./actions";

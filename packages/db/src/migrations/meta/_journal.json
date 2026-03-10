@@ -36,6 +36,13 @@
       "when": 1741564800000,
       "tag": "0004_coupons",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1741651200000,
+      "tag": "0005_product_qa",
+      "breakpoints": true
     }
   ]
 }

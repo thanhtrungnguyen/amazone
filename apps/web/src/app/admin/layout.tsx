@@ -1,11 +1,29 @@
 import Link from "next/link";
 import { AdminSidebarNav } from "./admin-sidebar-nav";
 
-export default function AdminLayout({
+async function getPendingReturnsCount(): Promise<number> {
+  try {
+    const { db, returnRequests } = await import("@amazone/db");
+    const { sql, eq } = await import("drizzle-orm");
+
+    const rows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(returnRequests)
+      .where(eq(returnRequests.status, "pending"));
+
+    return rows[0]?.count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
-}): React.ReactElement {
+}): Promise<React.ReactElement> {
+  const pendingReturnsCount = await getPendingReturnsCount();
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -15,7 +33,7 @@ export default function AdminLayout({
             Admin Panel
           </Link>
         </div>
-        <AdminSidebarNav />
+        <AdminSidebarNav pendingReturnsCount={pendingReturnsCount} />
       </aside>
 
       {/* Content */}

@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ProductCard } from "@amazone/shared-ui";
+import { ProductGridSkeleton } from "@amazone/shared-ui";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { InfiniteProductGrid } from "@/components/infinite-product-grid";
+import { fetchCategoryProductsPage } from "./actions";
 
 export async function generateMetadata({
   params,
@@ -26,17 +28,6 @@ interface Category {
   description: string | null;
 }
 
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  price: number;
-  compareAtPrice: number | null;
-  images: (string | null)[] | null;
-  avgRating: number;
-  reviewCount: number;
-}
-
 async function getCategory(slug: string): Promise<Category | null> {
   try {
     const { db, categories } = await import("@amazone/db");
@@ -50,30 +41,7 @@ async function getCategory(slug: string): Promise<Category | null> {
   }
 }
 
-async function getCategoryProducts(
-  categoryId: string
-): Promise<Product[]> {
-  try {
-    const { listProducts } = await import("@amazone/products");
-    const products = await listProducts({
-      categoryId,
-      sortBy: "newest",
-      limit: 24,
-    });
-    return products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      price: p.price,
-      compareAtPrice: p.compareAtPrice,
-      images: p.images,
-      avgRating: p.avgRating,
-      reviewCount: p.reviewCount,
-    }));
-  } catch {
-    return [];
-  }
-}
+const LIMIT = 24;
 
 export default async function CategoryPage({
   params,
@@ -87,7 +55,14 @@ export default async function CategoryPage({
     notFound();
   }
 
-  const products = await getCategoryProducts(category.id);
+  const { getProductsPaginated } = await import("@amazone/products");
+
+  const firstPage = await getProductsPaginated({
+    categoryId: category.id,
+    sortBy: "newest",
+    limit: LIMIT,
+    isActive: true,
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -103,7 +78,6 @@ export default async function CategoryPage({
       <div className="mb-8">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold">{category.name}</h1>
-          <Badge variant="secondary">{products.length} products</Badge>
         </div>
         {category.description && (
           <p className="mt-2 text-muted-foreground">{category.description}</p>
@@ -111,7 +85,7 @@ export default async function CategoryPage({
       </div>
 
       {/* Product grid */}
-      {products.length === 0 ? (
+      {firstPage.products.length === 0 ? (
         <div className="py-16 text-center">
           <p className="text-lg text-muted-foreground">
             No products in this category yet.
@@ -121,20 +95,15 @@ export default async function CategoryPage({
           </Button>
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {products.map((product) => (
-            <ProductCard
-              key={product.id}
-              name={product.name}
-              slug={product.slug}
-              priceInCents={product.price}
-              compareAtPriceInCents={product.compareAtPrice ?? undefined}
-              image={product.images?.[0] ?? null}
-              rating={product.avgRating}
-              reviewCount={product.reviewCount}
-            />
-          ))}
-        </div>
+        <Suspense fallback={<ProductGridSkeleton count={LIMIT} />}>
+          <InfiniteProductGrid
+            initialProducts={firstPage.products}
+            initialCursor={firstPage.nextCursor}
+            total={firstPage.total}
+            fetchNextPage={fetchCategoryProductsPage}
+            filterParams={{ categoryId: category.id }}
+          />
+        </Suspense>
       )}
     </div>
   );

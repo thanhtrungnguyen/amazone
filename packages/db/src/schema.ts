@@ -316,6 +316,70 @@ export const orderCoupons = pgTable("order_coupons", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
+// ─── Product Q&A ────────────────────────────────────────
+
+export const productQuestions = pgTable(
+  "product_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .references(() => products.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    question: text("question").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("product_questions_product_idx").on(table.productId),
+    index("product_questions_user_idx").on(table.userId),
+  ]
+);
+
+export const productAnswers = pgTable(
+  "product_answers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    questionId: uuid("question_id")
+      .references(() => productQuestions.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    answer: text("answer").notNull(),
+    isSellerAnswer: boolean("is_seller_answer").default(false).notNull(),
+    helpfulCount: integer("helpful_count").default(0).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("product_answers_question_idx").on(table.questionId),
+    index("product_answers_user_idx").on(table.userId),
+  ]
+);
+
+export const answerHelpfulVotes = pgTable(
+  "answer_helpful_votes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    answerId: uuid("answer_id")
+      .references(() => productAnswers.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("answer_helpful_votes_answer_user_idx").on(
+      table.answerId,
+      table.userId
+    ),
+  ]
+);
+
 // ─── Relations ──────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -325,6 +389,9 @@ export const usersRelations = relations(users, ({ many }) => ({
   orders: many(orders),
   reviews: many(reviews),
   returnRequests: many(returnRequests),
+  productQuestions: many(productQuestions),
+  productAnswers: many(productAnswers),
+  answerHelpfulVotes: many(answerHelpfulVotes),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
@@ -348,6 +415,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   wishlists: many(wishlists),
   orderItems: many(orderItems),
   reviews: many(reviews),
+  questions: many(productQuestions),
 }));
 
 export const cartItemsRelations = relations(cartItems, ({ one }) => ({
@@ -435,3 +503,47 @@ export const orderCouponsRelations = relations(orderCoupons, ({ one }) => ({
     references: [coupons.id],
   }),
 }));
+
+export const productQuestionsRelations = relations(
+  productQuestions,
+  ({ one, many }) => ({
+    product: one(products, {
+      fields: [productQuestions.productId],
+      references: [products.id],
+    }),
+    user: one(users, {
+      fields: [productQuestions.userId],
+      references: [users.id],
+    }),
+    answers: many(productAnswers),
+  })
+);
+
+export const productAnswersRelations = relations(
+  productAnswers,
+  ({ one, many }) => ({
+    question: one(productQuestions, {
+      fields: [productAnswers.questionId],
+      references: [productQuestions.id],
+    }),
+    user: one(users, {
+      fields: [productAnswers.userId],
+      references: [users.id],
+    }),
+    helpfulVotes: many(answerHelpfulVotes),
+  })
+);
+
+export const answerHelpfulVotesRelations = relations(
+  answerHelpfulVotes,
+  ({ one }) => ({
+    answer: one(productAnswers, {
+      fields: [answerHelpfulVotes.answerId],
+      references: [productAnswers.id],
+    }),
+    user: one(users, {
+      fields: [answerHelpfulVotes.userId],
+      references: [users.id],
+    }),
+  })
+);

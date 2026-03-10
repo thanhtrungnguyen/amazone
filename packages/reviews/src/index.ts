@@ -12,3 +12,20 @@ export {
   getProductReviews,
   getUserReviews,
 } from "./actions";
+
+export {
+  askQuestionSchema,
+  answerQuestionSchema,
+  type AskQuestionInput,
+  type AnswerQuestionInput,
+  type QuestionUser,
+  type AnswerWithUser,
+  type QuestionWithAnswers,
+} from "./qa-types";
+
+export {
+  askQuestion,
+  answerQuestion,
+  getProductQuestions,
+  markAnswerHelpful,
+} from "./qa-actions";
