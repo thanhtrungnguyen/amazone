@@ -9,7 +9,6 @@ import type { BreadcrumbItem } from "@/components/breadcrumbs";
 import {
   ProductFiltersSidebar,
   ProductFiltersMobile,
-  parseFilterParams,
   type ActiveFilters,
 } from "@/components/product-filters";
 import { InfiniteProductGrid } from "@/components/infinite-product-grid";
@@ -97,14 +96,18 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     breadcrumbItems.push({ label: activeCategoryName });
   }
 
-  // Build activeFilters for the sidebar from the raw string params
-  const urlParams = new URLSearchParams();
-  if (params.minPrice) urlParams.set("minPrice", params.minPrice);
-  if (params.maxPrice) urlParams.set("maxPrice", params.maxPrice);
-  if (params.rating) urlParams.set("rating", params.rating);
-  if (params.inStock) urlParams.set("inStock", params.inStock);
-  if (params.sort) urlParams.set("sort", params.sort);
-  const activeFilters: ActiveFilters = parseFilterParams(urlParams);
+  // Build activeFilters for the sidebar directly (avoid importing client-only parseFilterParams)
+  const validSorts = ["featured", "price_asc", "price_desc", "newest", "rating", "name"] as const;
+  const sortValue = validSorts.includes(params.sort as typeof validSorts[number])
+    ? (params.sort as ActiveFilters["sort"])
+    : "featured";
+  const activeFilters: ActiveFilters = {
+    minPriceCents: safeMinPrice ?? null,
+    maxPriceCents: safeMaxPrice ?? null,
+    rating: safeMinRating ?? null,
+    inStock: params.inStock === "1",
+    sort: sortValue,
+  };
 
   // Filter params forwarded to the client so it can pass them back in
   // subsequent fetchProductsPage calls.
